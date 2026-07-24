@@ -49,6 +49,15 @@ const PatientSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please add address']
   },
+  allergies: {
+    type: String,
+    default: 'None'
+  },
+  allergySeverity: {
+    type: String,
+    enum: ['Critical', 'Moderate', 'Mild', 'None'],
+    default: 'None'
+  },
   registeredDate: {
     type: String,
     required: true

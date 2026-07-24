@@ -6,6 +6,50 @@ const Doctor = require('../models/Doctor');
 const Patient = require('../models/Patient');
 const { protect, authorize } = require('../middleware/auth');
 
+const ALL_SLOTS = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '12:00', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'
+];
+
+// @desc    Get available slots for a doctor on a specific date
+// @route   GET /api/appointments/available-slots
+// @access  Private
+router.get('/available-slots', protect, async (req, res) => {
+  try {
+    const { doctorId, date } = req.query;
+
+    if (!doctorId || !date) {
+      return res.status(400).json({ success: false, error: 'Doctor ID and Date are required' });
+    }
+
+    let bookedSlots = [];
+
+    if (mongoose.connection.readyState === 1) {
+      const scheduledApts = await Appointment.find({ doctorId, date, status: 'Scheduled' });
+      bookedSlots = scheduledApts.map(a => a.time);
+    } else {
+      const store = global.memoryStore;
+      const scheduledApts = store.appointments.filter(
+        a => a.doctorId === doctorId && a.date === date && a.status === 'Scheduled'
+      );
+      bookedSlots = scheduledApts.map(a => a.time);
+    }
+
+    const availableSlots = ALL_SLOTS.filter(slot => !bookedSlots.includes(slot));
+
+    return res.json({
+      success: true,
+      doctorId,
+      date,
+      allSlots: ALL_SLOTS,
+      bookedSlots,
+      availableSlots
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // @desc    Get all appointments (scoped by role)
 // @route   GET /api/appointments
 // @access  Private
@@ -76,6 +120,90 @@ router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), async (re
     }
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// @desc    Reschedule appointment
+// @route   PUT /api/appointments/:id/reschedule
+// @access  Private (Admin, Receptionist, Staff)
+router.put('/:id/reschedule', protect, authorize('Admin', 'Receptionist', 'Staff'), async (req, res) => {
+  try {
+    const { newDate, newTime } = req.body;
+
+    if (!newDate || !newTime) {
+      return res.status(400).json({ success: false, error: 'New Date and Time are required for rescheduling.' });
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      const appointment = await Appointment.findOne({ id: req.params.id });
+      if (!appointment) return res.status(404).json({ success: false, error: 'Appointment not found' });
+
+      if (appointment.status !== 'Scheduled') {
+        return res.status(400).json({ success: false, error: 'Only Scheduled appointments can be rescheduled.' });
+      }
+
+      // Check slot conflict for the doctor on the new date & time (excluding current appointment)
+      const overlap = await Appointment.findOne({
+        doctorId: appointment.doctorId,
+        date: newDate,
+        time: newTime,
+        status: 'Scheduled',
+        id: { $ne: req.params.id }
+      });
+
+      if (overlap) {
+        return res.status(400).json({
+          success: false,
+          error: `Slot Conflict: ${appointment.doctorName} already has an appointment booked on ${newDate} at ${newTime}. Please select an available slot.`
+        });
+      }
+
+      const oldDate = appointment.date;
+      const oldTime = appointment.time;
+
+      appointment.date = newDate;
+      appointment.time = newTime;
+      await appointment.save();
+
+      return res.json({
+        success: true,
+        message: `Appointment for ${appointment.patientName} successfully rescheduled from ${oldDate} ${oldTime} to ${newDate} ${newTime}.`,
+        data: appointment
+      });
+    } else {
+      const store = global.memoryStore;
+      const apt = store.appointments.find(a => a.id === req.params.id);
+
+      if (!apt) return res.status(404).json({ success: false, error: 'Appointment not found' });
+      if (apt.status !== 'Scheduled') {
+        return res.status(400).json({ success: false, error: 'Only Scheduled appointments can be rescheduled.' });
+      }
+
+      const overlap = store.appointments.find(
+        a => a.doctorId === apt.doctorId && a.date === newDate && a.time === newTime && a.status === 'Scheduled' && a.id !== req.params.id
+      );
+
+      if (overlap) {
+        return res.status(400).json({
+          success: false,
+          error: `Slot Conflict: ${apt.doctorName} already has an appointment booked on ${newDate} at ${newTime}. Please select an available slot.`
+        });
+      }
+
+      const oldDate = apt.date;
+      const oldTime = apt.time;
+
+      apt.date = newDate;
+      apt.time = newTime;
+
+      return res.json({
+        success: true,
+        message: `Appointment for ${apt.patientName} successfully rescheduled from ${oldDate} ${oldTime} to ${newDate} ${newTime}.`,
+        data: apt
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

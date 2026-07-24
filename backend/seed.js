@@ -21,17 +21,17 @@ const seedDoctors = [
 ];
 
 const seedPatients = [
-  { id: 'SC-PAT-10001', name: 'Alice Johnson',  dob: '1992-03-15', gender: 'Female', cnic: '35201-1234567-1', phone: '+1 (555) 015-3829', email: 'alice.j@gmail.com',     bloodGroup: 'O+',  emergencyContact: 'Bob Johnson (+1 555-111-0001)',  address: '123 Maple St, Springfield',    registeredDate: '2026-07-02' },
-  { id: 'SC-PAT-10002', name: 'Bob Smith',       dob: '1981-07-22', gender: 'Male',   cnic: '35202-9876543-2', phone: '+1 (555) 011-2834', email: 'bob.smith@yahoo.com',   bloodGroup: 'A-',  emergencyContact: 'Jane Smith (+1 555-222-0002)',   address: '456 Oak Rd, Riverdale',        registeredDate: '2026-06-15' },
-  { id: 'SC-PAT-10003', name: 'Charlie Brown',   dob: '2014-11-05', gender: 'Male',   cnic: '35203-1122334-3', phone: '+1 (555) 018-9382', email: 'charlie.b@gmail.com',  bloodGroup: 'B+',  emergencyContact: 'Linda Brown (+1 555-333-0003)', address: '789 Pine Ave, Greendale',      registeredDate: '2026-07-10' },
-  { id: 'SC-PAT-10004', name: 'Diana Prince',    dob: '1998-06-30', gender: 'Female', cnic: '35204-5566778-4', phone: '+1 (555) 016-4839', email: 'diana.p@amazon.com',   bloodGroup: 'AB+', emergencyContact: 'Clark Prince (+1 555-444-0004)', address: '101 Amazon Way, Themyscira',   registeredDate: '2026-07-19' }
+  { id: 'SC-PAT-10001', name: 'Alice Johnson',  dob: '1992-03-15', gender: 'Female', cnic: '35201-1234567-1', phone: '+1 (555) 015-3829', email: 'alice.j@gmail.com',     bloodGroup: 'O+',  emergencyContact: 'Bob Johnson (+1 555-111-0001)',  address: '123 Maple St, Springfield',    allergies: 'Penicillin, Peanuts', allergySeverity: 'Critical', registeredDate: '2026-07-02' },
+  { id: 'SC-PAT-10002', name: 'Bob Smith',       dob: '1981-07-22', gender: 'Male',   cnic: '35202-9876543-2', phone: '+1 (555) 011-2834', email: 'bob.smith@yahoo.com',   bloodGroup: 'A-',  emergencyContact: 'Jane Smith (+1 555-222-0002)',   address: '456 Oak Rd, Riverdale',        allergies: 'Latex, Iodine',       allergySeverity: 'Moderate', registeredDate: '2026-06-15' },
+  { id: 'SC-PAT-10003', name: 'Charlie Brown',   dob: '2014-11-05', gender: 'Male',   cnic: '35203-1122334-3', phone: '+1 (555) 018-9382', email: 'charlie.b@gmail.com',  bloodGroup: 'B+',  emergencyContact: 'Linda Brown (+1 555-333-0003)', address: '789 Pine Ave, Greendale',      allergies: 'Dust Mites, Pollen',   allergySeverity: 'Mild',     registeredDate: '2026-07-10' },
+  { id: 'SC-PAT-10004', name: 'Diana Prince',    dob: '1998-06-30', gender: 'Female', cnic: '35204-5566778-4', phone: '+1 (555) 016-4839', email: 'diana.p@amazon.com',   bloodGroup: 'AB+', emergencyContact: 'Clark Prince (+1 555-444-0004)', address: '101 Amazon Way, Themyscira',   allergies: 'None',                 allergySeverity: 'None',     registeredDate: '2026-07-19' }
 ];
 
 const seedAppointments = [
-  { id: 'apt-1', patientId: 'SC-PAT-10001', patientName: 'Alice Johnson',  doctorId: 'doc-1', doctorName: 'Dr. Sarah Connor',  date: '2026-07-22', time: '10:00', fee: 150, status: 'Scheduled' },
-  { id: 'apt-2', patientId: 'SC-PAT-10002', patientName: 'Bob Smith',       doctorId: 'doc-4', doctorName: 'Dr. Robert Chen',   date: '2026-07-23', time: '11:30', fee: 100, status: 'Scheduled' },
-  { id: 'apt-3', patientId: 'SC-PAT-10004', patientName: 'Diana Prince',    doctorId: 'doc-3', doctorName: 'Dr. Emily Davis',   date: '2026-07-24', time: '14:00', fee: 200, status: 'Cancelled' },
-  { id: 'apt-4', patientId: 'SC-PAT-10003', patientName: 'Charlie Brown',   doctorId: 'doc-2', doctorName: 'Dr. John Smith',    date: '2026-07-25', time: '09:30', fee: 120, status: 'Scheduled' }
+  { id: 'apt-1', patientId: 'SC-PAT-10001', patientName: 'Alice Johnson',  doctorId: 'doc-1', doctorName: 'Dr. Sarah Connor',  date: '2026-07-25', time: '10:00', fee: 150, status: 'Scheduled' },
+  { id: 'apt-2', patientId: 'SC-PAT-10002', patientName: 'Bob Smith',       doctorId: 'doc-4', doctorName: 'Dr. Robert Chen',   date: '2026-07-26', time: '11:30', fee: 100, status: 'Scheduled' },
+  { id: 'apt-3', patientId: 'SC-PAT-10004', patientName: 'Diana Prince',    doctorId: 'doc-3', doctorName: 'Dr. Emily Davis',   date: '2026-07-27', time: '14:00', fee: 200, status: 'Cancelled' },
+  { id: 'apt-4', patientId: 'SC-PAT-10003', patientName: 'Charlie Brown',   doctorId: 'doc-2', doctorName: 'Dr. John Smith',    date: '2026-07-28', time: '09:30', fee: 120, status: 'Scheduled' }
 ];
 
 const seedInvoices = [
@@ -57,19 +57,15 @@ const runSeed = async (shouldExit = true) => {
     await Doctor.insertMany(seedDoctors);
     await Patient.insertMany(seedPatients);
 
-    // Seed Users (will hash passwords via pre-save hooks)
-    for (const u of seedUsers) {
-      await User.create(u);
-    }
-
-    // Seed Appointments & Invoices
+    // Seed Users
+    await User.insertMany(seedUsers);
     await Appointment.insertMany(seedAppointments);
     await Invoice.insertMany(seedInvoices);
 
-    console.log('🌱 Seeded database with initial records and role credentials.');
+    console.log('✅ Database seeded successfully!');
     if (shouldExit) process.exit(0);
   } catch (error) {
-    console.error('Seeding failed:', error.message);
+    console.error('❌ Database seed error:', error);
     if (shouldExit) process.exit(1);
   }
 };

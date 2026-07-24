@@ -1,122 +1,104 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState, useContext } from 'react';
+import { AppProvider, AppContext } from './context/AppContext';
+import Sidebar from './components/Sidebar';
+import Navbar from './components/Navbar';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Patients from './pages/Patients';
+import Doctors from './pages/Doctors';
+import Appointments from './pages/Appointments';
+import Billing from './pages/Billing';
+import Reports from './pages/Reports';
+import AdvancedSearch from './pages/AdvancedSearch';
+import SettingsPage from './pages/SettingsPage';
 
-function App() {
-  const [count, setCount] = useState(0)
+import LandingPage from './pages/LandingPage';
+
+function AppContent() {
+  const { user, logout, theme } = useContext(AppContext);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+
+  // If the user is not authenticated, display the landing page or login page.
+  if (!user) {
+    if (showLogin) {
+      return <Login onBack={() => setShowLogin(false)} />;
+    }
+    return <LandingPage onLoginClick={() => setShowLogin(true)} />;
+  }
+
+  // Router switcher mapping tabs to pages
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard setActiveTab={setActiveTab} />;
+      case 'patients':
+        return <Patients />;
+      case 'doctors':
+        return <Doctors />;
+      case 'appointments':
+        return <Appointments />;
+      case 'billing':
+        return <Billing />;
+      case 'reports':
+        return <Reports />;
+      case 'search':
+        return <AdvancedSearch />;
+      case 'settings':
+        return <SettingsPage />;
+      default:
+        return <Dashboard setActiveTab={setActiveTab} />;
+    }
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className={`min-h-screen theme-transition flex w-full ${theme === 'dark' ? 'dark' : ''}`}>
+      
+      {/* Sidebar Navigation */}
+      <Sidebar 
+        isCollapsed={isCollapsed} 
+        setIsCollapsed={setIsCollapsed} 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab}
+        logout={logout}
+        user={user}
+      />
 
-      <div className="ticks"></div>
+      {/* Main Panel Content Area */}
+      <div 
+        className="transition-all duration-300 min-h-screen flex flex-col flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+        style={{ paddingLeft: isCollapsed ? '80px' : '264px' }}
+      >
+        {/* Sticky Top Navbar */}
+        <Navbar 
+          activeTab={activeTab} 
+          user={user} 
+          logout={logout} 
+          isCollapsed={isCollapsed}
+          setIsCollapsed={setIsCollapsed}
+        />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {/* Scrollable Page Body */}
+        <main className="flex-1 p-6 md:p-8 mt-16 max-w-7xl w-full mx-auto">
+          {renderContent()}
+        </main>
+        
+        {/* Footer */}
+        <footer className="py-4 text-center text-xs font-semibold text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900 no-print">
+          &copy; {new Date().getFullYear()} Subhan Care HMS. Built with React & Tailwind CSS.
+        </footer>
+      </div>
+    </div>
+  );
 }
 
-export default App
+function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
+  );
+}
+
+export default App;

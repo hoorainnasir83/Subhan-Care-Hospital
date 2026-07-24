@@ -36,6 +36,28 @@ const UserSchema = new mongoose.Schema({
     type: String, // Maps to patient's custom id (e.g. SC-PAT-10001)
     default: null
   },
+  // ADD THESE FIELDS FOR FORGOT PASSWORD:
+  resetCode: {
+    type: String,
+    default: null,
+    select: false
+  },
+  resetCodeExpiry: {
+    type: Date,
+    default: null,
+    select: false
+  },
+  failedAttempts: {
+    type: Number,
+    default: 0,
+    select: false
+  },
+  lockUntil: {
+    type: Date,
+    default: null,
+    select: false
+  },
+  // END NEW FIELDS
   createdAt: {
     type: Date,
     default: Date.now
