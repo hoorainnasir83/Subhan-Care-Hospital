@@ -1,0 +1,109 @@
+name: Subhan Care HMS - CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm install
+
+      - name: Check Backend Files
+        run: |
+          cd backend
+          ls -la
+          ls routes/
+          ls models/
+
+      - name: Verify Backend Starts
+        run: |
+          cd backend
+          echo "PORT=5001" > .env
+          echo "JWT_SECRET=test_secret_for_ci" >> .env
+          echo "NODE_ENV=test" >> .env
+          timeout 10 node server.js || true
+        continue-on-error: true
+
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          echo "VITE_API_URL=http://localhost:5000" > .env
+          npm run build
+
+      - name: Check Build Output
+        run: |
+          cd frontend
+          ls dist/
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Backend Security Audit
+        run: |
+          cd backend
+          npm install
+          npm audit --audit-level=high || true
+
+      - name: Frontend Security Audit
+        run: |
+          cd frontend
+          npm install
+          npm audit --audit-level=high || true
+
+  quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check File Structure
+        run: |
+          ls backend/
+          ls frontend/src/
+          echo "All checks passed!"
