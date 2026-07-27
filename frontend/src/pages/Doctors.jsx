@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import AllergyBadge from '../components/AllergyBadge';
+import Pagination from '../components/Pagination';
 import {
   Plus, Search, Trash2, X, Star, Stethoscope,
   Phone, Mail, Clock, AlertCircle, ShieldAlert, UserCheck, Calendar
@@ -8,15 +9,21 @@ import {
 
 const SPECIALTIES = ['Cardiology','Pediatrics','Neurology','General Medicine','Orthopedics','Dermatology','Ophthalmology','Oncology','Psychiatry','Surgery'];
 
+// ✅ Show pagination even with 1 doctor
+const ITEMS_PER_PAGE = 1;
+
 const Doctors = () => {
   const { doctors, patients, appointments, addDoctor, deleteDoctor, canWrite } = useContext(AppContext);
   const writeAllowed = canWrite('doctors');
 
-  const [searchTerm,        setSearchTerm]        = useState('');
-  const [isModalOpen,       setIsModalOpen]       = useState(false);
-  const [doctorToDelete,    setDoctorToDelete]    = useState(null);
-  const [doctorToView,      setDoctorToView]      = useState(null);
-  const [formError,         setFormError]         = useState('');
+  const [searchTerm,     setSearchTerm]     = useState('');
+  const [isModalOpen,    setIsModalOpen]     = useState(false);
+  const [doctorToDelete, setDoctorToDelete]  = useState(null);
+  const [doctorToView,   setDoctorToView]   = useState(null);
+  const [formError,      setFormError]      = useState('');
+  
+  // ✅ Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [name,         setName]         = useState('');
   const [specialty,    setSpecialty]    = useState('Cardiology');
@@ -25,13 +32,28 @@ const Doctors = () => {
   const [availability, setAvailability] = useState('');
   const [fee,          setFee]          = useState('');
 
+  // ✅ Filtered Doctors
   const filtered = doctors.filter(d =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     d.specialty.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // ✅ Pagination Logic
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedDoctors = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // ✅ Reset page on search
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
   const resetForm = () => {
-    setName(''); setSpecialty('Cardiology'); setPhone(''); setEmail(''); setAvailability(''); setFee(''); setFormError('');
+    setName(''); setSpecialty('Cardiology'); setPhone(''); setEmail('');
+    setAvailability(''); setFee(''); setFormError('');
   };
 
   const handleSubmit = async (e) => {
@@ -50,7 +72,6 @@ const Doctors = () => {
     setIsModalOpen(false);
   };
 
-  // Find assigned patients for a doctor
   const getDoctorAssignedPatients = (docId) => {
     const docApts = appointments.filter(a => a.doctorId === docId && a.status === 'Scheduled');
     const patIds = [...new Set(docApts.map(a => a.patientId))];
@@ -64,10 +85,21 @@ const Doctors = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-150 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-xl font-bold font-outfit text-slate-800 dark:text-slate-200">Medical Staff Directory</h2>
-          <p className="text-xs text-slate-400 font-medium">Manage doctors, consultation fees & patient allergy lists</p>
+          <p className="text-xs text-slate-400 font-medium">
+            Manage doctors, consultation fees & patient allergy lists
+            {/* ✅ Doctor count badge */}
+            {filtered.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-bold">
+                {filtered.length} doctors
+              </span>
+            )}
+          </p>
         </div>
         {writeAllowed && (
-          <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold shadow-md transition-all">
+          <button
+            onClick={() => { resetForm(); setIsModalOpen(true); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold shadow-md transition-all"
+          >
             <Plus className="h-4 w-4" />Recruit Doctor
           </button>
         )}
@@ -76,58 +108,91 @@ const Doctors = () => {
       {/* Search */}
       <div className="relative">
         <Search className="h-5 w-5 text-slate-400 absolute left-3.5 inset-y-0 my-auto" />
-        <input type="text" placeholder="Search by name or specialty..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-          className="block w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm" />
+        <input
+          type="text"
+          placeholder="Search by name or specialty..."
+          value={searchTerm}
+          onChange={handleSearch}
+          className="block w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
+        />
       </div>
+
+      {/* ✅ Pagination Info */}
+      {filtered.length > 0 && (
+        <div className="text-xs text-slate-400 font-medium">
+          Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} doctors
+        </div>
+      )}
 
       {/* Card Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map(doc => {
-          const assignedPatients = getDoctorAssignedPatients(doc.id);
-          return (
-            <div
-              key={doc.id}
-              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-150 dark:border-slate-800 p-5 shadow-sm hover:shadow-md transition-shadow group relative"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center text-white font-extrabold text-lg shadow-md">
-                    {doc.name.split(' ').map(n => n[0]).join('').slice(0,2)}
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-150">
+          <p className="text-base font-bold text-slate-400">No doctors found.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {/* ✅ Use paginatedDoctors */}
+          {paginatedDoctors.map(doc => {
+            const assignedPatients = getDoctorAssignedPatients(doc.id);
+            return (
+              <div
+                key={doc.id}
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-150 dark:border-slate-800 p-5 shadow-sm hover:shadow-md transition-shadow group relative"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center text-white font-extrabold text-lg shadow-md">
+                      {doc.name.split(' ').map(n => n[0]).join('').slice(0,2)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800 dark:text-slate-200 leading-tight">{doc.name}</p>
+                      <span className="text-xs bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 font-semibold px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900">
+                        {doc.specialty}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-800 dark:text-slate-200 leading-tight">{doc.name}</p>
-                    <span className="text-xs bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 font-semibold px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900">
-                      {doc.specialty}
-                    </span>
-                  </div>
+                  {writeAllowed && (
+                    <button
+                      onClick={() => setDoctorToDelete(doc.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
-                {writeAllowed && (
-                  <button onClick={() => setDoctorToDelete(doc.id)} className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all">
-                    <Trash2 className="h-4 w-4" />
+
+                <div className="space-y-1.5 text-xs text-slate-500 font-medium mt-4">
+                  <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-slate-400" />{doc.phone}</div>
+                  <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-slate-400" />{doc.email}</div>
+                  <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-slate-400" />{doc.availability}</div>
+                </div>
+
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <span className="font-bold text-brand-600 dark:text-brand-400">${doc.fee} / consult</span>
+                  <button
+                    onClick={() => setDoctorToView(doc)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-lg transition-colors"
+                  >
+                    <UserCheck className="h-3.5 w-3.5 text-brand-500" />
+                    Patient List ({assignedPatients.length})
                   </button>
-                )}
+                </div>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div className="space-y-1.5 text-xs text-slate-500 font-medium mt-4">
-                <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-slate-400" />{doc.phone}</div>
-                <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-slate-400" />{doc.email}</div>
-                <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-slate-400" />{doc.availability}</div>
-              </div>
-
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-                <span className="font-bold text-brand-600 dark:text-brand-400">${doc.fee} / consult</span>
-                <button
-                  onClick={() => setDoctorToView(doc)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-brand-50 hover:text-brand-600 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-lg transition-colors"
-                >
-                  <UserCheck className="h-3.5 w-3.5 text-brand-500" />
-                  Patient List ({assignedPatients.length})
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* ✅ Pagination Component */}
+      {filtered.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filtered.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
+      )}
 
       {/* Read-only notice */}
       {!writeAllowed && (
@@ -137,7 +202,7 @@ const Doctors = () => {
         </div>
       )}
 
-      {/* View Doctor's Patient List with Allergy Badges Modal */}
+      {/* Doctor Patient List Modal */}
       {doctorToView && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDoctorToView(null)}></div>

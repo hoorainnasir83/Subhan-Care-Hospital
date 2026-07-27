@@ -6,6 +6,19 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const { sendResetCodeEmail } = require('../config/emailService');
+const { body, validationResult } = require('express-validator');
+
+// ✅ Validation Middleware
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      error: errors.array()[0].msg
+    });
+  }
+  next();
+};
 
 // Generate JWT token
 const generateToken = (id, email) => {
@@ -17,7 +30,12 @@ const generateToken = (id, email) => {
 // @desc    Register a new user
 // @route   POST /api/auth/register
 // @access  Public
-router.post('/register', async (req, res) => {
+router.post('/register', [
+  body('name').notEmpty().trim().withMessage('Name is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Please enter a valid email'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  handleValidationErrors
+], async (req, res) => {
   try {
     const { name, email, password, role, doctorId, patientId } = req.body;
 
@@ -88,7 +106,11 @@ router.post('/register', async (req, res) => {
 // @desc    Authenticate user & get token
 // @route   POST /api/auth/login
 // @access  Public
-router.post('/login', async (req, res) => {
+router.post('/login', [
+  body('email').isEmail().normalizeEmail().withMessage('Please enter a valid email'),
+  body('password').notEmpty().withMessage('Password is required'),
+  handleValidationErrors
+], async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -170,20 +192,15 @@ router.get('/me', protect, async (req, res) => {
 // @desc    Forgot Password - Send Reset Code
 // @route   POST /api/auth/forgot-password
 // @access  Public
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail().withMessage('Please enter a valid email'),
+  handleValidationErrors
+], async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email is required'
-      });
-    }
-
-    // Generate 6-digit code
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const resetCodeExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    const resetCodeExpiry = new Date(Date.now() + 15 * 60 * 1000);
 
     if (mongoose.connection.readyState === 1) {
       const user = await User.findOne({ email });
@@ -199,7 +216,6 @@ router.post('/forgot-password', async (req, res) => {
       user.failedAttempts = 0;
       await user.save();
     } else {
-      // Memory Store Fallback
       const store = global.memoryStore;
       const user = store.users.find(u => u.email === email);
       if (!user) {
@@ -213,7 +229,6 @@ router.post('/forgot-password', async (req, res) => {
       user.failedAttempts = 0;
     }
 
-    // Send email
     await sendResetCodeEmail(email, resetCode);
 
     res.json({
@@ -233,28 +248,20 @@ router.post('/forgot-password', async (req, res) => {
 // @desc    Verify Code & Reset Password
 // @route   POST /api/auth/verify-code
 // @access  Public
-router.post('/verify-code', async (req, res) => {
+router.post('/verify-code', [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+  body('code').isLength({ min: 6, max: 6 }).withMessage('Code must be 6 digits'),
+  body('newPassword').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('confirmPassword').notEmpty().withMessage('Confirm password is required'),
+  handleValidationErrors
+], async (req, res) => {
   try {
     const { email, code, newPassword, confirmPassword } = req.body;
-
-    if (!email || !code || !newPassword || !confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required'
-      });
-    }
 
     if (newPassword !== confirmPassword) {
       return res.status(400).json({
         success: false,
         message: 'Passwords do not match'
-      });
-    }
-
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 8 characters'
       });
     }
 
@@ -294,7 +301,6 @@ router.post('/verify-code', async (req, res) => {
       await user.save();
 
     } else {
-      // Memory Store Fallback
       const store = global.memoryStore;
       const user = store.users.find(u => u.email === email);
 
@@ -341,7 +347,10 @@ router.post('/verify-code', async (req, res) => {
 // @desc    Resend Reset Code
 // @route   POST /api/auth/resend-code
 // @access  Public
-router.post('/resend-code', async (req, res) => {
+router.post('/resend-code', [
+  body('email').isEmail().normalizeEmail().withMessage('Please enter a valid email'),
+  handleValidationErrors
+], async (req, res) => {
   try {
     const { email } = req.body;
 

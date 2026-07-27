@@ -11,8 +11,8 @@ import Billing from './pages/Billing';
 import Reports from './pages/Reports';
 import AdvancedSearch from './pages/AdvancedSearch';
 import SettingsPage from './pages/SettingsPage';
-
 import LandingPage from './pages/LandingPage';
+import NotFound from './pages/NotFound'; // ✅ NEW
 
 function AppContent() {
   const { user, logout, theme } = useContext(AppContext);
@@ -20,7 +20,7 @@ function AppContent() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
-  // If the user is not authenticated, display the landing page or login page.
+  // If user not authenticated
   if (!user) {
     if (showLogin) {
       return <Login onBack={() => setShowLogin(false)} />;
@@ -28,8 +28,16 @@ function AppContent() {
     return <LandingPage onLoginClick={() => setShowLogin(true)} />;
   }
 
-  // Router switcher mapping tabs to pages
+  // ✅ Valid tabs list
+  const validTabs = ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'reports', 'search', 'settings'];
+
+  // Router switcher
   const renderContent = () => {
+    // ✅ Show 404 if tab is invalid
+    if (!validTabs.includes(activeTab)) {
+      return <NotFound onGoHome={() => setActiveTab('dashboard')} />;
+    }
+
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard setActiveTab={setActiveTab} />;
@@ -48,7 +56,7 @@ function AppContent() {
       case 'settings':
         return <SettingsPage />;
       default:
-        return <Dashboard setActiveTab={setActiveTab} />;
+        return <NotFound onGoHome={() => setActiveTab('dashboard')} />;
     }
   };
 
@@ -65,7 +73,7 @@ function AppContent() {
         user={user}
       />
 
-      {/* Main Panel Content Area */}
+      {/* Main Panel */}
       <div 
         className="transition-all duration-300 min-h-screen flex flex-col flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
         style={{ paddingLeft: isCollapsed ? '80px' : '264px' }}
@@ -79,7 +87,7 @@ function AppContent() {
           setIsCollapsed={setIsCollapsed}
         />
 
-        {/* Scrollable Page Body */}
+        {/* Page Body */}
         <main className="flex-1 p-6 md:p-8 mt-16 max-w-7xl w-full mx-auto">
           {renderContent()}
         </main>

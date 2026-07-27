@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 
 // Load in-memory fallback store into global scope immediately
@@ -11,9 +12,46 @@ connectDB();
 
 const app = express();
 
+// ✅ Rate Limiters
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Max 100 requests per 15 minutes
+  message: {
+    success: false,
+    error: 'Too many requests. Please try again after 15 minutes.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Max 10 login attempts per 15 minutes
+  message: {
+    success: false,
+    error: 'Too many login attempts. Please try again after 15 minutes.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Max 5 forgot password requests per hour
+  message: {
+    success: false,
+    error: 'Too many password reset requests. Please try again after 1 hour.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
+
+// ✅ Apply Global Rate Limiter
+app.use(globalLimiter);
 
 // Root Status check (no DB required)
 app.get('/', (req, res) => {
@@ -25,7 +63,11 @@ app.get('/', (req, res) => {
   });
 });
 
-// REST Routes (memory store fallback handled inside each route)
+// REST Routes
+// ✅ Auth routes with stricter rate limiting
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot-password', forgotPasswordLimiter);
+app.use('/api/auth/resend-code', forgotPasswordLimiter);
 app.use('/api/auth',         require('./routes/auth'));
 app.use('/api/patients',     require('./routes/patients'));
 app.use('/api/doctors',      require('./routes/doctors'));
@@ -46,4 +88,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🛡️  Rate limiting enabled`);
 });

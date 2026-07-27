@@ -1,11 +1,14 @@
 import React, { useState, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import AllergyBadge from '../components/AllergyBadge';
+import Pagination from '../components/Pagination';
 import {
   Plus, Search, Trash2, X, UserPlus,
   Phone, Mail, MapPin, Droplet, AlertCircle, ShieldAlert,
   AlertTriangle, Shield, CheckCircle2, UserCheck
 } from 'lucide-react';
+
+const ITEMS_PER_PAGE = 8;
 
 const formatCNIC = (value) => {
   if (!value) return '';
@@ -24,6 +27,9 @@ const Patients = () => {
   const [patientToDelete, setPatientToDelete]  = useState(null);
   const [patientToView,   setPatientToView]    = useState(null);
   const [formError,       setFormError]        = useState('');
+  
+  // ✅ Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Form State
   const [name,             setName]            = useState('');
@@ -36,8 +42,9 @@ const Patients = () => {
   const [emergencyContact, setEmergencyContact] = useState('');
   const [address,          setAddress]         = useState('');
   const [allergies,        setAllergies]       = useState('');
-  const [allergySeverity, setAllergySeverity] = useState('None');
+  const [allergySeverity,  setAllergySeverity] = useState('None');
 
+  // ✅ Filtered Patients
   const filteredPatients = patients.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.cnic && p.cnic.includes(searchTerm)) ||
@@ -45,6 +52,19 @@ const Patients = () => {
     p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.allergies && p.allergies.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // ✅ Pagination Logic
+  const totalPages = Math.ceil(filteredPatients.length / ITEMS_PER_PAGE);
+  const paginatedPatients = filteredPatients.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // ✅ Reset page when search changes
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
 
   const resetForm = () => {
     setName(''); setDob(''); setGender('Male'); setCnic(''); setPhone('');
@@ -100,7 +120,15 @@ const Patients = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-150 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-xl font-bold font-outfit text-slate-800 dark:text-slate-200">Patients Directory</h2>
-          <p className="text-xs text-slate-400 font-medium">SRS FR-01 compliant patient registry & allergy tracking</p>
+          <p className="text-xs text-slate-400 font-medium">
+            SRS FR-01 compliant patient registry & allergy tracking
+            {/* ✅ Show count */}
+            {filteredPatients.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-bold">
+                {filteredPatients.length} patients
+              </span>
+            )}
+          </p>
         </div>
         {writeAllowed && (
           <button
@@ -118,7 +146,7 @@ const Patients = () => {
         <Search className="h-5 w-5 text-slate-400 absolute left-3.5 inset-y-0 my-auto" />
         <input
           type="text" placeholder="Search by name, CNIC, allergies, phone or email..."
-          value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+          value={searchTerm} onChange={handleSearch}
           className="block w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
         />
       </div>
@@ -144,7 +172,8 @@ const Patients = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm font-medium">
-                {filteredPatients.map(patient => (
+                {/* ✅ Use paginatedPatients */}
+                {paginatedPatients.map(patient => (
                   <tr
                     key={patient.id}
                     onClick={() => setPatientToView(patient)}
@@ -188,9 +217,22 @@ const Patients = () => {
             </table>
           )}
         </div>
+
+        {/* ✅ Pagination Component */}
+        {filteredPatients.length > 0 && (
+          <div className="px-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredPatients.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Read-only notice for non-write users */}
+      {/* Read-only notice */}
       {!writeAllowed && (
         <div className="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 rounded-xl text-xs font-semibold text-amber-700 dark:text-amber-400">
           <ShieldAlert className="h-4 w-4 flex-shrink-0" />
@@ -217,21 +259,18 @@ const Patients = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-                {/* Full Name */}
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Full Name *</label>
                   <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Doe"
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
-                {/* Date of Birth */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth *</label>
                   <input type="date" value={dob} onChange={e => setDob(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
-                {/* Gender */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Gender *</label>
                   <select value={gender} onChange={e => setGender(e.target.value)}
@@ -240,7 +279,6 @@ const Patients = () => {
                   </select>
                 </div>
 
-                {/* CNIC Auto-Formatter Field */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">CNIC / National ID *</label>
@@ -258,24 +296,21 @@ const Patients = () => {
                         : 'border-slate-200 dark:border-slate-700 focus:ring-brand-500'
                     }`}
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Format: 5 digits - 7 digits - 1 digit (e.g. 35201-1234567-1)</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Format: 5 digits - 7 digits - 1 digit</p>
                 </div>
 
-                {/* Phone */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Phone Number *</label>
                   <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 (555) 012-3456"
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
-                {/* Email */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address *</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="patient@example.com"
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
-                {/* Blood Group */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Blood Group *</label>
                   <select value={bloodGroup} onChange={e => setBloodGroup(e.target.value)}
@@ -284,33 +319,29 @@ const Patients = () => {
                   </select>
                 </div>
 
-                {/* Allergy Information */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Known Allergies</label>
                   <input type="text" value={allergies} onChange={e => setAllergies(e.target.value)} placeholder="e.g. Penicillin, Latex, Peanuts"
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
-                {/* Allergy Severity Level */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Allergy Severity Level</label>
                   <select value={allergySeverity} onChange={e => setAllergySeverity(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
                     <option value="None">None</option>
-                    <option value="Mild">Mild (Green - #22C55E)</option>
-                    <option value="Moderate">Moderate (Yellow - #FBBF24)</option>
-                    <option value="Critical">Critical (Red - #EF4444)</option>
+                    <option value="Mild">Mild (Green)</option>
+                    <option value="Moderate">Moderate (Yellow)</option>
+                    <option value="Critical">Critical (Red)</option>
                   </select>
                 </div>
 
-                {/* Emergency Contact */}
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Emergency Contact * <span className="text-[10px] font-normal normal-case text-slate-400">(Name + phone)</span></label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Emergency Contact *</label>
                   <input type="text" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="e.g. Jane Doe (+1 555-001-0000)"
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
-                {/* Address */}
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Home Address *</label>
                   <textarea value={address} onChange={e => setAddress(e.target.value)} rows="2" placeholder="e.g. 123 Main St, City"
