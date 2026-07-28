@@ -12,7 +12,8 @@ import Reports from './pages/Reports';
 import AdvancedSearch from './pages/AdvancedSearch';
 import SettingsPage from './pages/SettingsPage';
 import LandingPage from './pages/LandingPage';
-import NotFound from './pages/NotFound'; // ✅ NEW
+import NotFound from './pages/NotFound';
+import ErrorBoundary from './components/ErrorBoundary'; // ✅ NEW
 
 function AppContent() {
   const { user, logout, theme } = useContext(AppContext);
@@ -23,9 +24,17 @@ function AppContent() {
   // If user not authenticated
   if (!user) {
     if (showLogin) {
-      return <Login onBack={() => setShowLogin(false)} />;
+      return (
+        <ErrorBoundary>
+          <Login onBack={() => setShowLogin(false)} />
+        </ErrorBoundary>
+      );
     }
-    return <LandingPage onLoginClick={() => setShowLogin(true)} />;
+    return (
+      <ErrorBoundary>
+        <LandingPage onLoginClick={() => setShowLogin(true)} />
+      </ErrorBoundary>
+    );
   }
 
   // ✅ Valid tabs list
@@ -33,7 +42,6 @@ function AppContent() {
 
   // Router switcher
   const renderContent = () => {
-    // ✅ Show 404 if tab is invalid
     if (!validTabs.includes(activeTab)) {
       return <NotFound onGoHome={() => setActiveTab('dashboard')} />;
     }
@@ -87,9 +95,11 @@ function AppContent() {
           setIsCollapsed={setIsCollapsed}
         />
 
-        {/* Page Body */}
+        {/* Page Body - ✅ Wrapped with ErrorBoundary */}
         <main className="flex-1 p-6 md:p-8 mt-16 max-w-7xl w-full mx-auto">
-          {renderContent()}
+          <ErrorBoundary>
+            {renderContent()}
+          </ErrorBoundary>
         </main>
         
         {/* Footer */}
@@ -103,9 +113,12 @@ function AppContent() {
 
 function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    // ✅ Top Level ErrorBoundary
+    <ErrorBoundary>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -4,13 +4,75 @@ const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
 const Patient = require('../models/Patient');
+const logger = require('../config/logger');
 const { protect, authorize } = require('../middleware/auth');
+const { appointmentValidation, sanitizeQueryParams, handleValidationErrors } = require('../middleware/sanitization');
 
 const ALL_SLOTS = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
   '12:00', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'
 ];
 
+/**
+ * @swagger
+ * /appointments/available-slots:
+ *   get:
+ *     summary: Get available appointment slots for a doctor
+ *     description: Retrieve available time slots for a specific doctor on a given date
+ *     tags:
+ *       - Appointments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: doctorId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Doctor ID
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date to check availability (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Available slots retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 doctorId:
+ *                   type: string
+ *                 date:
+ *                   type: string
+ *                   format: date
+ *                 allSlots:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["08:00", "08:30", "09:00"]
+ *                 bookedSlots:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["09:00", "09:30"]
+ *                 availableSlots:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["08:00", "08:30", "10:00"]
+ *       400:
+ *         description: Missing required parameters
+ *       500:
+ *         description: Server error
+ */
 // @desc    Get available slots for a doctor on a specific date
 // @route   GET /api/appointments/available-slots
 // @access  Private
@@ -50,11 +112,67 @@ router.get('/available-slots', protect, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /appointments:
+ *   get:
+ *     summary: Get all appointments
+ *     description: Retrieve appointments. Doctors see only their own appointments, others see all appointments.
+ *     tags:
+ *       - Appointments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           maxLength: 100
+ *         description: Search term for filtering appointments
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Number of results per page
+ *     responses:
+ *       200:
+ *         description: Appointments retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Appointment'
+ *       401:
+ *         description: Unauthorized - Token missing or invalid
+ *       500:
+ *         description: Server error
+ */
 // @desc    Get all appointments (scoped by role)
 // @route   GET /api/appointments
 // @access  Private
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, sanitizeQueryParams, async (req, res) => {
   try {
+    logger.info('Fetching appointments', { userId: req.user._id || req.user.id, role: req.user.role });
+    
     let query = {};
     if (req.user.role === 'Doctor' && req.user.doctorId) {
       query.doctorId = req.user.doctorId;
@@ -62,6 +180,7 @@ router.get('/', protect, async (req, res) => {
 
     if (mongoose.connection.readyState === 1) {
       const appointments = await Appointment.find(query).sort({ date: -1, time: -1 });
+      logger.info('Appointments fetched successfully', { count: appointments.length });
       return res.json({ success: true, count: appointments.length, data: appointments });
     }
 
@@ -75,10 +194,69 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /appointments:
+ *   post:
+ *     summary: Book a new appointment
+ *     description: Create a new appointment between a patient and doctor. Requires Admin, Receptionist, or Staff role.
+ *     tags:
+ *       - Appointments
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - patientId
+ *               - doctorId
+ *               - date
+ *               - time
+ *             properties:
+ *               patientId:
+ *                 type: string
+ *                 example: SC-PAT-10001
+ *               doctorId:
+ *                 type: string
+ *                 example: doc-1234567890
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 example: 2026-08-15
+ *               time:
+ *                 type: string
+ *                 pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+ *                 example: "14:30"
+ *                 description: Appointment time in HH:MM 24-hour format
+ *     responses:
+ *       201:
+ *         description: Appointment booked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Appointment'
+ *       400:
+ *         description: Validation error or slot already booked
+ *       401:
+ *         description: Unauthorized or insufficient permissions
+ *       404:
+ *         description: Patient or Doctor not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Book a new appointment
 // @route   POST /api/appointments
 // @access  Private (Admin, Receptionist, Staff)
-router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), async (req, res) => {
+router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), appointmentValidation, async (req, res) => {
   try {
     const { patientId, doctorId, date, time } = req.body;
 
@@ -123,6 +301,65 @@ router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), async (re
   }
 });
 
+/**
+ * @swagger
+ * /appointments/{id}/reschedule:
+ *   put:
+ *     summary: Reschedule an appointment
+ *     description: Change the date and/or time of an existing appointment. Only Scheduled appointments can be rescheduled.
+ *     tags:
+ *       - Appointments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Appointment ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newDate
+ *               - newTime
+ *             properties:
+ *               newDate:
+ *                 type: string
+ *                 format: date
+ *                 example: 2026-08-20
+ *               newTime:
+ *                 type: string
+ *                 pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+ *                 example: "15:00"
+ *     responses:
+ *       200:
+ *         description: Appointment rescheduled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/Appointment'
+ *       400:
+ *         description: Invalid request or slot conflict
+ *       401:
+ *         description: Unauthorized or insufficient permissions
+ *       404:
+ *         description: Appointment not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Reschedule appointment
 // @route   PUT /api/appointments/:id/reschedule
 // @access  Private (Admin, Receptionist, Staff)
@@ -207,6 +444,43 @@ router.put('/:id/reschedule', protect, authorize('Admin', 'Receptionist', 'Staff
   }
 });
 
+/**
+ * @swagger
+ * /appointments/{id}/cancel:
+ *   put:
+ *     summary: Cancel an appointment
+ *     description: Cancel a scheduled appointment. Only Scheduled appointments can be cancelled.
+ *     tags:
+ *       - Appointments
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Appointment ID to cancel
+ *     responses:
+ *       200:
+ *         description: Appointment cancelled successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Appointment'
+ *       401:
+ *         description: Unauthorized or insufficient permissions
+ *       404:
+ *         description: Appointment not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Cancel appointment
 // @route   PUT /api/appointments/:id/cancel
 // @access  Private (Admin, Receptionist, Staff)

@@ -1,0 +1,7 @@
+[2026-07-27 16:46:01] [[32MINFO[39M]: Logger initialized
+{
+  "service": "subhan-care-hms",
+  "environment": "development",
+  "logLevel": "debug",
+  "logsDirectory": "D:\\Subhan care hms\\backend\\logs"
+}

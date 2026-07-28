@@ -2,28 +2,180 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Patient = require('../models/Patient');
+const logger = require('../config/logger');
 const { protect, authorize } = require('../middleware/auth');
+const { patientValidation, sanitizeQueryParams, handleValidationErrors } = require('../middleware/sanitization');
 
-// @desc    Get all patients
-// @route   GET /api/patients
-// @access  Private
-router.get('/', protect, async (req, res) => {
+/**
+ * @swagger
+ * /patients:
+ *   get:
+ *     summary: Get all patients
+ *     description: Retrieve a list of all registered patients. Results are sorted by registration date (newest first).
+ *     tags:
+ *       - Patients
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *           maxLength: 100
+ *         description: Search term for filtering patients by name or CNIC
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Number of results per page
+ *     responses:
+ *       200:
+ *         description: Patients retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 15
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Patient'
+ *       401:
+ *         description: Unauthorized - Token missing or invalid
+ *       500:
+ *         description: Server error
+ */
+router.get('/', protect, sanitizeQueryParams, async (req, res) => {
   try {
+    logger.info('Fetching patients', { userId: req.user._id || req.user.id });
+    
     if (mongoose.connection.readyState === 1) {
       const patients = await Patient.find({}).sort({ registeredDate: -1 });
+      logger.info('Patients fetched successfully', { count: patients.length });
       return res.json({ success: true, count: patients.length, data: patients });
     }
     const patients = global.memoryStore.patients;
+    logger.info('Patients fetched from memory store', { count: patients.length });
     res.json({ success: true, count: patients.length, data: patients });
   } catch (error) {
+    logger.error('Error fetching patients', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user._id || req.user.id
+    });
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+/**
+ * @swagger
+ * /patients:
+ *   post:
+ *     summary: Register a new patient
+ *     description: Create a new patient record. Requires Admin, Receptionist, or Staff role. CNIC must be unique and in format XXXXX-XXXXXXX-X.
+ *     tags:
+ *       - Patients
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - dob
+ *               - gender
+ *               - cnic
+ *               - phone
+ *               - email
+ *               - bloodGroup
+ *               - emergencyContact
+ *               - address
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 minLength: 2
+ *                 maxLength: 100
+ *                 example: Ahmed Khan
+ *               dob:
+ *                 type: string
+ *                 format: date
+ *                 example: 1985-06-15
+ *               gender:
+ *                 type: string
+ *                 enum: [Male, Female, Other]
+ *                 example: Male
+ *               cnic:
+ *                 type: string
+ *                 pattern: '^\d{5}-\d{7}-\d{1}$'
+ *                 example: "12345-1234567-1"
+ *               phone:
+ *                 type: string
+ *                 example: "03001234567"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: ahmed@example.com
+ *               bloodGroup:
+ *                 type: string
+ *                 enum: [A+, A-, B+, B-, AB+, AB-, O+, O-]
+ *                 example: O+
+ *               emergencyContact:
+ *                 type: string
+ *                 example: "03009876543"
+ *               address:
+ *                 type: string
+ *                 maxLength: 200
+ *                 example: 123 Main Street, Karachi
+ *               allergies:
+ *                 type: string
+ *                 example: Penicillin, Aspirin
+ *               allergySeverity:
+ *                 type: string
+ *                 enum: [Critical, Moderate, Mild, None]
+ *                 default: None
+ *                 example: Moderate
+ *     responses:
+ *       201:
+ *         description: Patient registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Patient'
+ *       400:
+ *         description: Validation error or CNIC already registered
+ *       401:
+ *         description: Unauthorized or insufficient permissions
+ *       500:
+ *         description: Server error
+ */
 // @desc    Register new patient
 // @route   POST /api/patients
 // @access  Private (Admin, Receptionist, Staff)
-router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), async (req, res) => {
+router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), patientValidation, async (req, res) => {
   try {
     const { name, dob, gender, cnic, phone, email, bloodGroup, emergencyContact, address, allergies, allergySeverity } = req.body;
 
