@@ -7,9 +7,54 @@
     @apply bg-slate-50 text-slate-800 antialiased font-sans;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
+
+  /* ✅ Dark mode base styles */
+  .dark body {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  /* ✅ Dark mode input styles */
+  .dark input,
+  .dark textarea,
+  .dark select {
+    @apply bg-slate-800 border-slate-700 text-slate-100;
+    color-scheme: dark;
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    @apply text-slate-500;
+  }
+
+  /* ✅ Dark mode table styles */
+  .dark table {
+    @apply text-slate-200;
+  }
+
+  .dark thead {
+    @apply bg-slate-800;
+  }
+
+  .dark tbody tr:hover {
+    @apply bg-slate-800/50;
+  }
+
+  .dark td, .dark th {
+    @apply border-slate-700;
+  }
+
+  /* ✅ Dark mode card styles */
+  .dark .card {
+    @apply bg-slate-900 border-slate-800;
+  }
+
+  /* ✅ Dark mode modal styles */
+  .dark .modal {
+    @apply bg-slate-900 border-slate-800;
+  }
 }
 
-/* Custom Scrollbar for modern look */
+/* ✅ Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -28,20 +73,151 @@
   background: #94a3b8;
 }
 
-/* Dark Mode overrides for base elements */
-.dark body {
-  background-color: #0f172a !important; /* slate-900 */
-  color: #f1f5f9 !important; /* slate-100 */
+/* ✅ Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
 }
 
-/* Custom transitions for smooth theme switching */
-.theme-transition *, .theme-transition {
-  transition-property: background-color, border-color, text-decoration-color, fill, stroke;
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* ✅ Dark Mode overrides */
+.dark body {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+
+/* ✅ Dark mode form elements */
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="tel"],
+.dark input[type="number"],
+.dark input[type="date"],
+.dark input[type="time"],
+.dark textarea,
+.dark select {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+}
+
+/* ✅ Dark mode buttons */
+.dark button:not([class*="bg-"]) {
+  color: #f1f5f9;
+}
+
+/* ✅ Dark mode links */
+.dark a:not([class*="text-"]) {
+  color: #93c5fd;
+}
+
+/* ✅ Dark mode badges */
+.dark .badge {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+/* ✅ Dark mode borders */
+.dark .border {
+  border-color: #334155;
+}
+
+/* ✅ Dark mode shadows */
+.dark .shadow-sm {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.dark .shadow-md {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* ✅ Smooth Theme Transition */
+.theme-transition *,
+.theme-transition {
+  transition-property: background-color, border-color, color, fill, stroke;
   transition-duration: 250ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Print Utilities - Hides all navigation elements, sidebars, footers, and buttons, isolates the invoice block */
+/* ✅ Dark mode specific page fixes */
+.dark .bg-white {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-slate-50 {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: #334155 !important;
+}
+
+.dark .text-gray-900,
+.dark .text-slate-900 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-gray-800,
+.dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-gray-700,
+.dark .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-gray-600,
+.dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-gray-500,
+.dark .text-slate-500 {
+  color: #64748b !important;
+}
+
+.dark .border-gray-200,
+.dark .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+.dark .border-gray-100,
+.dark .border-slate-100 {
+  border-color: #1e293b !important;
+}
+
+/* ✅ Dark mode notification/alert fixes */
+.dark .alert-success {
+  background-color: #064e3b !important;
+  color: #6ee7b7 !important;
+}
+
+.dark .alert-error {
+  background-color: #7f1d1d !important;
+  color: #fca5a5 !important;
+}
+
+/* ✅ Dark mode toast */
+.dark .react-hot-toast {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+/* ✅ Print Utilities */
 @media print {
   body {
     background: white !important;
@@ -49,20 +225,17 @@
     padding: 0 !important;
     margin: 0 !important;
   }
-  
-  /* Hide UI wrapper components */
+
   aside, header, footer, button, .no-print, nav {
     display: none !important;
   }
-  
-  /* Expand main panel content to fill printable canvas */
+
   main {
     margin: 0 !important;
     padding: 0 !important;
     max-width: 100% !important;
   }
-  
-  /* Reset container styles to look like paper page */
+
   .print-area {
     position: absolute;
     left: 0;
