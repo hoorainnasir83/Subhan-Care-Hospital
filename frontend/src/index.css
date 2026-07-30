@@ -2,13 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    background-color: #f8fafc;
-    color: #1e293b;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
+/* ✅ Base styles without @apply to avoid circular dependency */
+body {
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* ✅ Custom Scrollbar */
@@ -39,7 +38,7 @@
   background: #64748b;
 }
 
-/* ✅ Dark Mode overrides */
+/* ✅ Dark Mode Base */
 .dark body {
   background-color: #0f172a !important;
   color: #f1f5f9 !important;
@@ -85,7 +84,8 @@
   background-color: rgba(30, 41, 59, 0.5);
 }
 
-.dark td, .dark th {
+.dark td,
+.dark th {
   border-color: #334155;
 }
 
@@ -98,15 +98,7 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
 }
 
-/* ✅ Smooth Theme Transition */
-.theme-transition *,
-.theme-transition {
-  transition-property: background-color, border-color, color, fill, stroke;
-  transition-duration: 250ms;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ✅ Dark mode specific page fixes */
+/* ✅ Dark mode color overrides */
 .dark .bg-white {
   background-color: #1e293b !important;
 }
@@ -156,6 +148,14 @@
 .dark .border-gray-100,
 .dark .border-slate-100 {
   border-color: #1e293b !important;
+}
+
+/* ✅ Smooth Theme Transition */
+.theme-transition *,
+.theme-transition {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ✅ Dark mode alerts */
