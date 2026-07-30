@@ -4,53 +4,10 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-800 antialiased font-sans;
+    background-color: #f8fafc;
+    color: #1e293b;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  }
-
-  /* ✅ Dark mode base styles */
-  .dark body {
-    @apply bg-slate-950 text-slate-100;
-  }
-
-  /* ✅ Dark mode input styles */
-  .dark input,
-  .dark textarea,
-  .dark select {
-    @apply bg-slate-800 border-slate-700 text-slate-100;
-    color-scheme: dark;
-  }
-
-  .dark input::placeholder,
-  .dark textarea::placeholder {
-    @apply text-slate-500;
-  }
-
-  /* ✅ Dark mode table styles */
-  .dark table {
-    @apply text-slate-200;
-  }
-
-  .dark thead {
-    @apply bg-slate-800;
-  }
-
-  .dark tbody tr:hover {
-    @apply bg-slate-800/50;
-  }
-
-  .dark td, .dark th {
-    @apply border-slate-700;
-  }
-
-  /* ✅ Dark mode card styles */
-  .dark .card {
-    @apply bg-slate-900 border-slate-800;
-  }
-
-  /* ✅ Dark mode modal styles */
-  .dark .modal {
-    @apply bg-slate-900 border-slate-800;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
@@ -103,6 +60,11 @@
   color: #f1f5f9 !important;
 }
 
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
 .dark input:focus,
 .dark textarea:focus,
 .dark select:focus {
@@ -110,24 +72,20 @@
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
 }
 
-/* ✅ Dark mode buttons */
-.dark button:not([class*="bg-"]) {
-  color: #f1f5f9;
+/* ✅ Dark mode table */
+.dark table {
+  color: #e2e8f0;
 }
 
-/* ✅ Dark mode links */
-.dark a:not([class*="text-"]) {
-  color: #93c5fd;
-}
-
-/* ✅ Dark mode badges */
-.dark .badge {
+.dark thead {
   background-color: #1e293b;
-  color: #f1f5f9;
 }
 
-/* ✅ Dark mode borders */
-.dark .border {
+.dark tbody tr:hover {
+  background-color: rgba(30, 41, 59, 0.5);
+}
+
+.dark td, .dark th {
   border-color: #334155;
 }
 
@@ -200,7 +158,7 @@
   border-color: #1e293b !important;
 }
 
-/* ✅ Dark mode notification/alert fixes */
+/* ✅ Dark mode alerts */
 .dark .alert-success {
   background-color: #064e3b !important;
   color: #6ee7b7 !important;
@@ -209,12 +167,6 @@
 .dark .alert-error {
   background-color: #7f1d1d !important;
   color: #fca5a5 !important;
-}
-
-/* ✅ Dark mode toast */
-.dark .react-hot-toast {
-  background-color: #1e293b !important;
-  color: #f1f5f9 !important;
 }
 
 /* ✅ Print Utilities */
