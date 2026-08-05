@@ -40,4 +40,14 @@ const DoctorSchema = new mongoose.Schema({
   }
 });
 
+// Full-text search index
+DoctorSchema.index({
+  name: 'text',
+  specialty: 'text',
+  email: 'text'
+}, {
+  name: 'doctor_text_search',
+  weights: { name: 10, specialty: 5, email: 3 }
+});
+
 module.exports = mongoose.model('Doctor', DoctorSchema);

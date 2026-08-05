@@ -3,7 +3,8 @@ import { AppContext } from '../context/AppContext';
 import { Settings, Save, Download, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const SettingsPage = () => {
-  const { settings, updateSettings, exportBackup, restoreBackup } = useContext(AppContext);
+  const { settings, updateSettings, exportBackup, restoreBackup, user } = useContext(AppContext);
+  const isAdmin = user?.role === 'Admin';
 
   // Form State: Hospital Details
   const [hospitalName, setHospitalName] = useState(settings.hospitalName);
@@ -91,6 +92,14 @@ const SettingsPage = () => {
         <Settings className="h-6 w-6 text-brand-600 dark:text-brand-400" />
       </div>
 
+      {/* Non-Admin Notice */}
+      {!isAdmin && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border-l-4 border-amber-500 p-4 rounded-r-xl text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+          <span>Read-Only Mode: Only system Administrators can modify hospital settings or perform database backups.</span>
+        </div>
+      )}
+
       {/* Save Success Alert */}
       {saveSuccess && (
         <div className="bg-emerald-50 dark:bg-emerald-950/20 border-l-4 border-emerald-500 p-4 rounded-r-xl flex items-center gap-2 text-sm font-bold text-emerald-800 dark:text-emerald-300 animate-bounce">
@@ -156,13 +165,15 @@ const SettingsPage = () => {
               />
             </div>
 
-            <button
-              type="submit"
-              className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/10 transition-colors"
-            >
-              <Save className="h-4.5 w-4.5" />
-              <span>Save Details</span>
-            </button>
+            {isAdmin && (
+              <button
+                type="submit"
+                className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/10 transition-colors"
+              >
+                <Save className="h-4.5 w-4.5" />
+                <span>Save Details</span>
+              </button>
+            )}
           </form>
         </div>
 
@@ -199,13 +210,15 @@ const SettingsPage = () => {
               Note: Changing this email will update your active Admin login ID. The login password remains <b>admin123</b>.
             </div>
 
-            <button
-              type="submit"
-              className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/10 transition-colors"
-            >
-              <Save className="h-4.5 w-4.5" />
-              <span>Update Profile</span>
-            </button>
+            {isAdmin && (
+              <button
+                type="submit"
+                className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/10 transition-colors"
+              >
+                <Save className="h-4.5 w-4.5" />
+                <span>Update Profile</span>
+              </button>
+            )}
           </form>
         </div>
 
@@ -222,7 +235,8 @@ const SettingsPage = () => {
           {/* Download Backup */}
           <button
             onClick={handleExport}
-            className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-50/20 dark:hover:bg-slate-850/50 rounded-2xl transition-all duration-200 group text-center space-y-2"
+            disabled={!isAdmin}
+            className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-50/20 dark:hover:bg-slate-850/50 disabled:opacity-40 disabled:pointer-events-none rounded-2xl transition-all duration-200 group text-center space-y-2"
           >
             <Download className="h-8 w-8 text-slate-450 group-hover:text-brand-600 group-hover:scale-110 transition-all" />
             <div>
@@ -234,7 +248,8 @@ const SettingsPage = () => {
           {/* Restore Backup */}
           <button
             onClick={triggerFileInput}
-            className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-50/20 dark:hover:bg-slate-850/50 rounded-2xl transition-all duration-200 group text-center space-y-2"
+            disabled={!isAdmin}
+            className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-brand-500 dark:hover:border-brand-500 hover:bg-brand-50/20 dark:hover:bg-slate-850/50 disabled:opacity-40 disabled:pointer-events-none rounded-2xl transition-all duration-200 group text-center space-y-2"
           >
             <Upload className="h-8 w-8 text-slate-450 group-hover:text-brand-600 group-hover:scale-110 transition-all" />
             <div>

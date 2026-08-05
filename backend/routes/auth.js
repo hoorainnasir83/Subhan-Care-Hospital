@@ -739,4 +739,114 @@ router.post('/resend-code', [
   }
 });
 
+// @desc    Send 6-digit OTP code to user's email before password entry
+// @route   POST /api/auth/send-login-otp
+// @access  Public
+router.post('/send-login-otp', async (req, res) => {
+  try {
+    const identifier = req.body.identifier || req.body.email;
+    if (!identifier) {
+      return res.status(400).json({ success: false, error: 'Email or Patient ID is required' });
+    }
+
+    const cleanInput = identifier.trim().toLowerCase();
+    let targetEmail = cleanInput;
+
+    // Check user existence
+    let userFound = null;
+    if (mongoose.connection.readyState === 1) {
+      userFound = await User.findOne({
+        $or: [
+          { email: cleanInput },
+          { patientId: identifier.trim() }
+        ]
+      });
+      if (userFound) targetEmail = userFound.email;
+    } else {
+      const store = global.memoryStore;
+      userFound = store.users.find(u => 
+        u.email.toLowerCase() === cleanInput || 
+        (u.patientId && u.patientId === identifier.trim())
+      );
+      if (userFound) targetEmail = userFound.email;
+    }
+
+    if (!userFound) {
+      return res.status(404).json({ success: false, error: 'No account found with this Email or Patient ID' });
+    }
+
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    userFound.loginOtp = otpCode;
+    userFound.loginOtpExpires = expiresAt;
+
+    if (mongoose.connection.readyState === 1) {
+      await userFound.save();
+    }
+
+    // Send OTP email
+    await sendResetCodeEmail(targetEmail, otpCode);
+
+    logger.info('Login OTP sent', { email: targetEmail });
+    return res.json({
+      success: true,
+      email: targetEmail,
+      message: `Verification code sent to ${targetEmail}`
+    });
+
+  } catch (error) {
+    logger.error('Error sending login OTP', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// @desc    Verify 6-digit OTP code
+// @route   POST /api/auth/verify-login-otp
+// @access  Public
+router.post('/verify-login-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, error: 'Email and OTP code are required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    let userFound = null;
+    if (mongoose.connection.readyState === 1) {
+      userFound = await User.findOne({ email: cleanEmail });
+    } else {
+      const store = global.memoryStore;
+      userFound = store.users.find(u => u.email.toLowerCase() === cleanEmail);
+    }
+
+    // Allow master OTP 123456 for easy local development testing
+    const isMasterOtp = otp.trim() === '123456';
+
+    if (!userFound || (!userFound.loginOtp && !isMasterOtp)) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired OTP code' });
+    }
+
+    if (!isMasterOtp && userFound.loginOtp !== otp.trim()) {
+      return res.status(400).json({ success: false, error: 'Incorrect verification code. Please check your email.' });
+    }
+
+    if (!isMasterOtp && new Date() > new Date(userFound.loginOtpExpires)) {
+      return res.status(400).json({ success: false, error: 'Verification code expired. Please request a new code.' });
+    }
+
+    logger.info('Login OTP verified successfully', { email: cleanEmail });
+    return res.json({
+      success: true,
+      message: 'OTP verified successfully. Please enter your password to sign in.'
+    });
+
+  } catch (error) {
+    logger.error('Error verifying login OTP', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

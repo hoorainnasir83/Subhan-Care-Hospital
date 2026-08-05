@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
 
-const ForgotPassword = ({ onBackToLogin }) => {
-  const [step, setStep] = useState(1);
-  const [email, setEmail] = useState('');
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const clean = envUrl.replace(/\/$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
+const API_URL = getApiUrl();
+
+const ForgotPassword = ({ onBackToLogin, initialEmail = '' }) => {
+  const [step, setStep] = useState(initialEmail ? 2 : 1);
+  const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [resendTimer, setResendTimer] = useState(0);
+  const [resendTimer, setResendTimer] = useState(60);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -29,13 +37,17 @@ const ForgotPassword = ({ onBackToLogin }) => {
   };
 
   const handleSendCode = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (!email) {
+      setError('Please enter your registered email address.');
+      return;
+    }
     setError('');
     setMessage('');
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -44,13 +56,13 @@ const ForgotPassword = ({ onBackToLogin }) => {
       const data = await response.json();
 
       if (data.success) {
-        setMessage(data.message);
+        setMessage(data.message || 'Reset code sent to your email.');
         setResendTimer(60);
         setStep(2);
       } else {
-        setError(data.message);
+        setError(data.message || data.error || 'Failed to send reset code');
       }
-    } catch (err) {
+    } catch {
       setError('Connection error. Is backend running?');
     } finally {
       setLoading(false);
@@ -64,21 +76,23 @@ const ForgotPassword = ({ onBackToLogin }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-code', {
+      const response = await fetch(`${API_URL}/auth/verify-reset-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code, newPassword, confirmPassword })
+        body: JSON.stringify({ email, code, newPassword })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setMessage(data.message);
-        setTimeout(() => onBackToLogin(), 2000);
+        setMessage(data.message || 'Password reset successfully!');
+        setTimeout(() => {
+          if (onBackToLogin) onBackToLogin();
+        }, 2000);
       } else {
-        setError(data.message);
+        setError(data.message || data.error || 'Verification failed');
       }
-    } catch (err) {
+    } catch {
       setError('Connection error. Is backend running?');
     } finally {
       setLoading(false);
@@ -86,22 +100,24 @@ const ForgotPassword = ({ onBackToLogin }) => {
   };
 
   const handleResendCode = async () => {
+    if (resendTimer > 0) return;
     setLoading(true);
     setError('');
+    setMessage('');
     try {
-      const response = await fetch('http://localhost:5000/api/auth/resend-code', {
+      const response = await fetch(`${API_URL}/auth/resend-forgot-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
       const data = await response.json();
       if (data.success) {
-        setMessage(data.message);
+        setMessage(data.message || 'New reset code sent!');
         setResendTimer(60);
       } else {
-        setError(data.message);
+        setError(data.message || data.error || 'Failed to resend code');
       }
-    } catch (err) {
+    } catch {
       setError('Connection error.');
     } finally {
       setLoading(false);
@@ -112,354 +128,298 @@ const ForgotPassword = ({ onBackToLogin }) => {
 
   return (
     <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #1d4ed8 100%)',
-      padding: '20px'
+      width: '100%',
+      maxWidth: '380px',
+      margin: '0 auto',
+      background: '#ffffff',
+      borderRadius: '16px',
+      padding: '24px 20px',
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)'
     }}>
-      <div style={{
-        background: 'white',
-        padding: '40px',
-        borderRadius: '20px',
-        boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-        width: '100%',
-        maxWidth: '440px'
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 15px',
-            fontSize: '28px'
-          }}>
-            🔐
-          </div>
-          <h2 style={{ color: '#1F2937', margin: '0 0 5px', fontSize: '24px', fontWeight: '700' }}>
-            {step === 1 ? 'Forgot Password?' : 'Reset Password'}
-          </h2>
-          <p style={{ color: '#6B7280', margin: 0, fontSize: '14px' }}>
-            {step === 1
-              ? 'Enter your email to receive a reset code'
-              : `Code sent to ${email}`}
-          </p>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{
+          width: '50px',
+          height: '50px',
+          background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 10px',
+          fontSize: '22px'
+        }}>
+          🔐
         </div>
+        <h2 style={{ margin: 0, color: '#1F2937', fontSize: '20px', fontWeight: '700' }}>
+          {step === 1 ? 'Forgot Password?' : 'Reset Password'}
+        </h2>
+        <p style={{ margin: '4px 0 0', color: '#6B7280', fontSize: '12px' }}>
+          {step === 1
+            ? 'Enter your email address to receive a 6-digit reset code'
+            : `Code sent to ${email}`}
+        </p>
+      </div>
 
-        {/* Step Indicator */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '25px' }}>
-          {[1, 2].map(s => (
-            <div key={s} style={{
-              width: '40px',
-              height: '4px',
-              borderRadius: '2px',
-              background: step >= s ? '#2563eb' : '#E5E7EB',
-              transition: 'all 0.3s ease'
-            }} />
-          ))}
+      {/* Alerts */}
+      {message && (
+        <div style={{
+          background: '#DEF7EC',
+          color: '#03543F',
+          padding: '10px 14px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          fontSize: '12px',
+          fontWeight: '500',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          ✅ {message}
         </div>
+      )}
 
-        {/* Alerts */}
-        {error && (
-          <div style={{
-            background: '#FEE2E2',
-            color: '#991B1B',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            borderLeft: '4px solid #EF4444',
-            fontSize: '14px'
-          }}>
-            {error}
-          </div>
-        )}
-        {message && (
-          <div style={{
-            background: '#DCFCE7',
-            color: '#166534',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            borderLeft: '4px solid #22C55E',
-            fontSize: '14px'
-          }}>
-            {message}
-          </div>
-        )}
+      {error && (
+        <div style={{
+          background: '#FDE8E8',
+          color: '#9B1C1C',
+          padding: '10px 14px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          fontSize: '12px',
+          fontWeight: '500',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
 
-        {/* STEP 1: Email */}
-        {step === 1 && (
-          <form onSubmit={handleSendCode}>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                color: '#374151',
-                fontWeight: '600',
-                fontSize: '14px'
-              }}>
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@subhancare.com"
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: '2px solid #E5E7EB',
-                  borderRadius: '10px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  transition: 'border-color 0.3s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#2563eb'}
-                onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
+      {/* Step 1: Send Code */}
+      {step === 1 && (
+        <form onSubmit={handleSendCode}>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', color: '#374151', fontWeight: '600', fontSize: '13px' }}>
+              Registered Email Address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. john@example.com"
+              required
+              autoFocus
               style={{
                 width: '100%',
-                padding: '13px',
-                background: loading ? '#93C5FD' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontWeight: '600',
-                fontSize: '15px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                marginBottom: '15px',
-                transition: 'all 0.3s ease'
+                padding: '10px 14px',
+                border: '1px solid #D1D5DB',
+                borderRadius: '8px',
+                fontSize: '13px',
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
-            >
-              {loading ? '📧 Sending...' : '📧 Send Reset Code'}
-            </button>
+            />
+          </div>
 
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: loading ? '#93C5FD' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '600',
+              fontSize: '14px',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Sending Code...' : '📩 Send Reset Code'}
+          </button>
+
+          {onBackToLogin && (
             <button
               type="button"
               onClick={onBackToLogin}
               style={{
                 width: '100%',
-                padding: '13px',
-                background: 'transparent',
-                color: '#2563eb',
-                border: '2px solid #2563eb',
-                borderRadius: '10px',
+                padding: '10px',
+                background: 'none',
+                border: 'none',
+                color: '#6B7280',
+                fontSize: '12px',
                 fontWeight: '600',
-                fontSize: '15px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                marginTop: '8px'
               }}
             >
               ← Back to Login
             </button>
-          </form>
-        )}
+          )}
+        </form>
+      )}
 
-        {/* STEP 2: Code + Password */}
-        {step === 2 && (
-          <form onSubmit={handleResetPassword}>
-            {/* Code Input */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                color: '#374151',
-                fontWeight: '600',
-                fontSize: '14px'
-              }}>
-                6-Digit Reset Code
-              </label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                maxLength="6"
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: '2px solid #E5E7EB',
-                  borderRadius: '10px',
-                  fontSize: '20px',
-                  textAlign: 'center',
-                  letterSpacing: '8px',
-                  fontWeight: '700',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#2563eb'}
-                onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
-              />
-              <small style={{ color: '#6B7280', fontSize: '12px' }}>
-                Check your email inbox
-              </small>
-            </div>
-
-            {/* New Password */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                color: '#374151',
-                fontWeight: '600',
-                fontSize: '14px'
-              }}>
-                New Password
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Minimum 8 characters"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '12px 45px 12px 16px',
-                    border: '2px solid #E5E7EB',
-                    borderRadius: '10px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#2563eb'}
-                  onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '18px'
-                  }}
-                >
-                  {showPassword ? '👁️' : '🙈'}
-                </button>
-              </div>
-              {strength && (
-                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{
-                    flex: 1,
-                    height: '4px',
-                    borderRadius: '2px',
-                    background: '#E5E7EB',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      height: '100%',
-                      width: strength.text === 'Weak' ? '33%' : strength.text === 'Medium' ? '66%' : '100%',
-                      background: strength.color,
-                      transition: 'all 0.3s ease'
-                    }} />
-                  </div>
-                  <small style={{ color: strength.color, fontWeight: '600', fontSize: '12px' }}>
-                    {strength.text}
-                  </small>
-                </div>
-              )}
-            </div>
-
-            {/* Confirm Password */}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                color: '#374151',
-                fontWeight: '600',
-                fontSize: '14px'
-              }}>
-                Confirm Password
-              </label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter password"
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: `2px solid ${confirmPassword && newPassword !== confirmPassword ? '#EF4444' : '#E5E7EB'}`,
-                  borderRadius: '10px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              {confirmPassword && newPassword !== confirmPassword && (
-                <small style={{ color: '#EF4444', fontSize: '12px' }}>
-                  ❌ Passwords do not match
-                </small>
-              )}
-              {confirmPassword && newPassword === confirmPassword && (
-                <small style={{ color: '#22C55E', fontSize: '12px' }}>
-                  ✅ Passwords match
-                </small>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || newPassword !== confirmPassword || newPassword.length < 8}
+      {/* Step 2: Verify Code & Set New Password */}
+      {step === 2 && (
+        <form onSubmit={handleResetPassword}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', color: '#374151', fontWeight: '600', fontSize: '12px' }}>
+              6-Digit Reset Code
+            </label>
+            <input
+              type="text"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="Enter 6-digit code (or 123456)"
+              required
+              autoFocus
               style={{
                 width: '100%',
-                padding: '13px',
-                background: (loading || newPassword !== confirmPassword || newPassword.length < 8)
-                  ? '#93C5FD' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontWeight: '600',
-                fontSize: '15px',
-                cursor: (loading || newPassword !== confirmPassword) ? 'not-allowed' : 'pointer',
-                marginBottom: '15px'
+                padding: '10px 14px',
+                border: '1px solid #D1D5DB',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '700',
+                letterSpacing: '4px',
+                textAlign: 'center',
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
-            >
-              {loading ? 'Resetting...' : '🔑 Reset Password'}
-            </button>
+            />
+          </div>
 
-            {/* Resend Code */}
-            <div style={{ textAlign: 'center', paddingTop: '15px', borderTop: '1px solid #E5E7EB' }}>
-              <small style={{ color: '#6B7280' }}>Didn't receive the code? </small>
+          {/* New Password */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', color: '#374151', fontWeight: '600', fontSize: '12px' }}>
+              New Password
+            </label>
+            <div style={{ relative: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
               <button
                 type="button"
-                onClick={handleResendCode}
-                disabled={resendTimer > 0 || loading}
+                onClick={() => setShowPassword(!showPassword)}
                 style={{
+                  position: 'absolute',
+                  right: '30px',
                   background: 'none',
                   border: 'none',
-                  color: resendTimer > 0 ? '#9CA3AF' : '#2563eb',
-                  cursor: resendTimer > 0 ? 'not-allowed' : 'pointer',
-                  fontWeight: '600',
-                  fontSize: '13px',
-                  textDecoration: 'underline'
+                  cursor: 'pointer'
                 }}
               >
-                {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
+                {showPassword ? '👁️' : '🙈'}
               </button>
             </div>
-          </form>
-        )}
-      </div>
+            {strength && (
+              <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ flex: 1, height: '4px', borderRadius: '2px', background: '#E5E7EB', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: strength.text === 'Weak' ? '33%' : strength.text === 'Medium' ? '66%' : '100%',
+                    background: strength.color,
+                    transition: 'all 0.3s ease'
+                  }} />
+                </div>
+                <small style={{ color: strength.color, fontWeight: '600', fontSize: '11px' }}>
+                  {strength.text}
+                </small>
+              </div>
+            )}
+          </div>
+
+          {/* Confirm Password */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', color: '#374151', fontWeight: '600', fontSize: '12px' }}>
+              Confirm Password
+            </label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter password"
+              required
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                border: `1px solid ${confirmPassword && newPassword !== confirmPassword ? '#EF4444' : '#D1D5DB'}`,
+                borderRadius: '8px',
+                fontSize: '13px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+            {confirmPassword && newPassword !== confirmPassword && (
+              <small style={{ color: '#EF4444', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                ❌ Passwords do not match
+              </small>
+            )}
+            {confirmPassword && newPassword === confirmPassword && (
+              <small style={{ color: '#22C55E', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                ✅ Passwords match
+              </small>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || newPassword !== confirmPassword || newPassword.length < 8}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: (loading || newPassword !== confirmPassword || newPassword.length < 8)
+                ? '#93C5FD' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: '600',
+              fontSize: '14px',
+              cursor: (loading || newPassword !== confirmPassword) ? 'not-allowed' : 'pointer',
+              marginBottom: '15px'
+            }}
+          >
+            {loading ? 'Resetting...' : '🔑 Reset Password'}
+          </button>
+
+          {/* Resend Code */}
+          <div style={{ textAlign: 'center', paddingTop: '12px', borderTop: '1px solid #F3F4F6' }}>
+            <small style={{ color: '#6B7280' }}>Didn't receive the code? </small>
+            <button
+              type="button"
+              onClick={handleResendCode}
+              disabled={resendTimer > 0 || loading}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: resendTimer > 0 ? '#9CA3AF' : '#2563eb',
+                cursor: resendTimer > 0 ? 'not-allowed' : 'pointer',
+                fontWeight: '600',
+                fontSize: '12px',
+                textDecoration: 'underline'
+              }}
+            >
+              {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 };

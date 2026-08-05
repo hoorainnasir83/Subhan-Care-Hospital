@@ -3,7 +3,7 @@ import { AppContext, ROLE_ACCESS } from '../context/AppContext';
 import {
   LayoutDashboard, Users, Stethoscope, Calendar,
   ChevronLeft, ChevronRight, Activity, LogOut,
-  Receipt, BarChart3, Search, Settings
+  Receipt, BarChart3, Search, Settings, Package, ClipboardList
 } from 'lucide-react';
 
 const ALL_MENU_ITEMS = [
@@ -12,6 +12,8 @@ const ALL_MENU_ITEMS = [
   { id: 'doctors',      label: 'Doctors',             icon: Stethoscope     },
   { id: 'appointments', label: 'Appointments',        icon: Calendar        },
   { id: 'billing',      label: 'Billing & Invoice',   icon: Receipt         },
+  { id: 'prescriptions',label: 'Prescriptions',        icon: ClipboardList   },
+  { id: 'inventory',    label: 'Inventory',           icon: Package         },
   { id: 'reports',      label: 'Reports & Analytics', icon: BarChart3       },
   { id: 'search',       label: 'Advanced Search',     icon: Search          },
   { id: 'settings',     label: 'Settings',            icon: Settings        },

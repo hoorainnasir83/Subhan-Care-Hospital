@@ -13,8 +13,15 @@ const STATUS_STYLES = {
 };
 
 const DEFAULT_TIME_SLOTS = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00',
+  '09:00', '09:15', '09:30', '09:45',
+  '10:00', '10:15', '10:30', '10:45',
+  '11:00', '11:15', '11:30', '11:45',
+  '12:00', '12:15', '12:30', '12:45',
+  '13:00', '13:15', '13:30', '13:45',
+  '14:00', '14:15', '14:30', '14:45',
+  '15:00', '15:15', '15:30', '15:45',
+  '16:00', '16:15', '16:30', '16:45',
+  '17:00'
 ];
 
 const Appointments = () => {
@@ -373,7 +380,12 @@ const Appointments = () => {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500 inline-block"></span> Available (15 min)</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700 inline-block"></span> Booked (Disabled)</span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 max-h-48 overflow-y-auto p-1 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-850">
                     {DEFAULT_TIME_SLOTS.map(t => {
                       const isBooked = bookedSlots.includes(t);
                       const isSelected = time === t;
@@ -383,17 +395,17 @@ const Appointments = () => {
                           type="button"
                           disabled={isBooked}
                           onClick={() => setTime(t)}
-                          className={`px-2 py-2 rounded-lg text-xs font-bold transition-all border text-center flex flex-col items-center justify-center ${
+                          className={`px-1.5 py-2 rounded-lg text-xs font-bold transition-all border text-center flex flex-col items-center justify-center ${
                             isBooked
-                              ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-400 border-rose-200 cursor-not-allowed line-through'
+                              ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60 line-through'
                               : isSelected
                               ? 'bg-brand-600 text-white border-brand-700 shadow-md ring-2 ring-brand-400'
-                              : 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
                           }`}
                         >
-                          <span>{t}</span>
-                          <span className="text-[9px] font-normal leading-tight mt-0.5">
-                            {isBooked ? 'Already Booked' : 'Slot Available'}
+                          <span className="font-mono">{t}</span>
+                          <span className="text-[8px] font-normal leading-none mt-0.5 opacity-80">
+                            {isBooked ? 'Booked' : 'Free'}
                           </span>
                         </button>
                       );

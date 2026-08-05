@@ -2,6 +2,8 @@ import React, { useState, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import AllergyBadge from '../components/AllergyBadge';
 import Pagination from '../components/Pagination';
+import MedicalTimeline from '../components/MedicalTimeline';
+import MedicalRecordForm from '../components/MedicalRecordForm';
 import {
   Plus, Search, Trash2, X, UserPlus,
   Phone, Mail, MapPin, Droplet, AlertCircle, ShieldAlert,
@@ -22,11 +24,12 @@ const Patients = () => {
   const { patients, addPatient, deletePatient, canWrite } = useContext(AppContext);
   const writeAllowed = canWrite('patients');
 
-  const [searchTerm,      setSearchTerm]      = useState('');
-  const [isModalOpen,     setIsModalOpen]      = useState(false);
-  const [patientToDelete, setPatientToDelete]  = useState(null);
-  const [patientToView,   setPatientToView]    = useState(null);
-  const [formError,       setFormError]        = useState('');
+  const [searchTerm,          setSearchTerm]          = useState('');
+  const [isModalOpen,         setIsModalOpen]          = useState(false);
+  const [patientToDelete,     setPatientToDelete]      = useState(null);
+  const [patientToView,       setPatientToView]        = useState(null);
+  const [showAddRecordForm,   setShowAddRecordForm]   = useState(false);
+  const [formError,           setFormError]            = useState('');
   
   // ✅ Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -262,19 +265,19 @@ const Patients = () => {
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Full Name *</label>
                   <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. John Doe"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth *</label>
                   <input type="date" value={dob} onChange={e => setDob(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Gender *</label>
                   <select value={gender} onChange={e => setGender(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
                     <option>Male</option><option>Female</option><option>Other</option>
                   </select>
                 </div>
@@ -290,11 +293,11 @@ const Patients = () => {
                     onChange={handleCnicChange}
                     placeholder="35201-1234567-1"
                     maxLength={15}
-                    className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border rounded-lg text-sm focus:outline-none focus:ring-2 font-mono ${
+                    className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 font-mono ${
                       cnic && /^\d{5}-\d{7}-\d{1}$/.test(cnic)
                         ? 'border-emerald-400 focus:ring-emerald-500'
                         : 'border-slate-200 dark:border-slate-700 focus:ring-brand-500'
-                    }`}
+                    }`} 
                   />
                   <p className="text-[10px] text-slate-400 mt-1">Format: 5 digits - 7 digits - 1 digit</p>
                 </div>
@@ -302,19 +305,19 @@ const Patients = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Phone Number *</label>
                   <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 (555) 012-3456"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address *</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="patient@example.com"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Blood Group *</label>
                   <select value={bloodGroup} onChange={e => setBloodGroup(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
                     {['A+','A-','B+','B-','O+','O-','AB+','AB-'].map(g => <option key={g}>{g}</option>)}
                   </select>
                 </div>
@@ -322,13 +325,13 @@ const Patients = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Known Allergies</label>
                   <input type="text" value={allergies} onChange={e => setAllergies(e.target.value)} placeholder="e.g. Penicillin, Latex, Peanuts"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Allergy Severity Level</label>
                   <select value={allergySeverity} onChange={e => setAllergySeverity(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
                     <option value="None">None</option>
                     <option value="Mild">Mild (Green)</option>
                     <option value="Moderate">Moderate (Yellow)</option>
@@ -339,13 +342,13 @@ const Patients = () => {
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Emergency Contact *</label>
                   <input type="text" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="e.g. Jane Doe (+1 555-001-0000)"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium" />
                 </div>
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Home Address *</label>
                   <textarea value={address} onChange={e => setAddress(e.target.value)} rows="2" placeholder="e.g. 123 Main St, City"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium resize-none" />
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium resize-none" />
                 </div>
 
               </div>
@@ -372,12 +375,7 @@ const Patients = () => {
               <button onClick={() => setPatientToView(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button>
             </div>
 
-            <div className="space-y-4 text-xs font-medium">
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Allergy Profile</p>
-                <AllergyBadge allergies={patientToView.allergies} severity={patientToView.allergySeverity || 'None'} subtle={false} />
-              </div>
-
+            <div className="space-y-4 text-xs font-medium max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3 text-slate-600 dark:text-slate-300">
                 <div><span className="text-slate-400 block text-[10px] uppercase font-bold">CNIC:</span> {patientToView.cnic || 'N/A'}</div>
                 <div><span className="text-slate-400 block text-[10px] uppercase font-bold">Blood Group:</span> {patientToView.bloodGroup}</div>
@@ -388,19 +386,47 @@ const Patients = () => {
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Emergency Contact</p>
-                <p className="text-slate-700 dark:text-slate-200">{patientToView.emergencyContact}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Allergy Profile</p>
+                <AllergyBadge allergies={patientToView.allergies} severity={patientToView.allergySeverity || 'None'} subtle={false} />
               </div>
 
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Address</p>
-                <p className="text-slate-700 dark:text-slate-200">{patientToView.address}</p>
+              {/* Medical History & Scans / Attachments Timeline */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Medical Records & Reports</h4>
+                  {writeAllowed && (
+                    <button
+                      onClick={() => { setShowAddRecordForm(true); }}
+                      className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
+                    >
+                      + Add Record & Reports
+                    </button>
+                  )}
+                </div>
+
+                <MedicalTimeline
+                  patientId={patientToView.id}
+                  onAddNew={() => { setShowAddRecordForm(true); }}
+                />
               </div>
             </div>
 
             <div className="flex justify-end mt-5">
               <button onClick={() => setPatientToView(null)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold">Close</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Medical Record / File Attachment Modal */}
+      {showAddRecordForm && patientToView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-2xl my-6">
+            <MedicalRecordForm
+              patientId={patientToView.id}
+              onSuccess={() => { setShowAddRecordForm(false); }}
+              onCancel={() => { setShowAddRecordForm(false); }}
+            />
           </div>
         </div>
       )}

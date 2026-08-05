@@ -3,7 +3,13 @@ import toast from 'react-hot-toast';
 
 export const AppContext = createContext();
 
-const API_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const clean = envUrl.replace(/\/$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
+const API_URL = getApiUrl();
 
 const defaultSettings = {
   hospitalName:    'Subhan Care Clinic',
@@ -15,19 +21,21 @@ const defaultSettings = {
 
 // ─── Role-Based Access Matrix ─────────────────────────────────────────────────
 export const ROLE_ACCESS = {
-  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'reports', 'search', 'settings'],
-  Doctor:       ['dashboard', 'patients', 'appointments'],
-  Receptionist: ['dashboard', 'patients', 'doctors', 'appointments'],
-  Billing:      ['dashboard', 'patients', 'billing', 'reports'],
-  Staff:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'reports', 'search'],
+  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'reports', 'search', 'settings'],
+  Doctor:       ['dashboard', 'patients', 'appointments', 'prescriptions', 'inventory'],
+  Patient:      ['dashboard', 'appointments', 'prescriptions'],
+  Receptionist: ['dashboard', 'patients', 'doctors', 'appointments', 'inventory'],
+  Billing:      ['dashboard', 'patients', 'billing', 'prescriptions', 'inventory', 'reports'],
+  Staff:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'reports', 'search'],
 };
 
 export const WRITE_ACCESS = {
-  Admin:        ['patients', 'doctors', 'appointments', 'billing'],
+  Admin:        ['patients', 'doctors', 'appointments', 'billing', 'inventory'],
   Doctor:       [],
+  Patient:      ['appointments'],
   Receptionist: ['patients', 'appointments'],
-  Billing:      ['billing'],
-  Staff:        ['patients', 'doctors', 'appointments', 'billing'],
+  Billing:      ['billing', 'inventory'],
+  Staff:        ['patients', 'doctors', 'appointments', 'billing', 'inventory'],
 };
 
 export const AppProvider = ({ children }) => {
@@ -42,6 +50,7 @@ export const AppProvider = ({ children }) => {
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [medicines, setMedicines] = useState([]);
   const [settings, setSettings] = useState(() => {
     const s = localStorage.getItem('hms_settings');
     return s ? JSON.parse(s) : defaultSettings;
@@ -111,6 +120,18 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Fetch medicines inventory
+  const fetchMedicines = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/inventory`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setMedicines(json.data);
+    } catch (err) {
+      console.error('Error fetching medicines:', err);
+    }
+  };
+
   // Load all data on token change or startup
   const fetchAllData = async () => {
     if (!token) return;
@@ -119,7 +140,8 @@ export const AppProvider = ({ children }) => {
       fetchDoctors(),
       fetchPatients(),
       fetchAppointments(),
-      fetchInvoices()
+      fetchInvoices(),
+      fetchMedicines()
     ]);
     setIsLoading(false);
   };
@@ -132,6 +154,7 @@ export const AppProvider = ({ children }) => {
       setPatients([]);
       setAppointments([]);
       setInvoices([]);
+      setMedicines([]);
     }
   }, [token]);
 
@@ -414,6 +437,90 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // ── Inventory / Medicines CRUD ───────────────────────────────────────────────
+  const addMedicine = async (medData) => {
+    try {
+      const res = await fetch(`${API_URL}/inventory`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(medData)
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchMedicines();
+        toast.success('Medicine added to inventory!');
+        return { success: true, data: json.data };
+      }
+      toast.error(json.error || 'Failed to add medicine');
+      return { success: false, error: json.error };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const updateMedicine = async (id, medData) => {
+    try {
+      const res = await fetch(`${API_URL}/inventory/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(medData)
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchMedicines();
+        toast.success('Medicine updated successfully!');
+        return { success: true, data: json.data };
+      }
+      toast.error(json.error || 'Failed to update medicine');
+      return { success: false, error: json.error };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const adjustStock = async (id, adjustment, reason) => {
+    try {
+      const res = await fetch(`${API_URL}/inventory/${id}/stock`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ adjustment, reason })
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchMedicines();
+        toast.success(json.message || 'Stock updated!');
+        return { success: true };
+      }
+      toast.error(json.error || 'Failed to update stock');
+      return { success: false, error: json.error };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const deleteMedicine = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/inventory/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchMedicines();
+        toast.success('Medicine removed from inventory!');
+        return { success: true };
+      }
+      toast.error(json.error || 'Failed to delete medicine');
+      return { success: false, error: json.error };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
   // ── Settings ──────────────────────────────────────────────────────────────────
   const updateSettings = (newSettings) => {
     setSettings(newSettings);
@@ -463,6 +570,7 @@ export const AppProvider = ({ children }) => {
       patients, addPatient, deletePatient,
       appointments, bookAppointment, cancelAppointment, rescheduleAppointment, getAvailableSlots,
       invoices, addInvoice, markInvoicePaid,
+      medicines, addMedicine, updateMedicine, adjustStock, deleteMedicine, fetchMedicines,
       settings, updateSettings, exportBackup, restoreBackup,
       stats,
     }}>

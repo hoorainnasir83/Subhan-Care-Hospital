@@ -6,6 +6,7 @@ const Patient = require('../models/Patient');
 const logger = require('../config/logger');
 const { protect, authorize } = require('../middleware/auth');
 const { invoiceValidation, sanitizeQueryParams, handleValidationErrors } = require('../middleware/sanitization');
+const { cacheMiddleware, clearCachePattern } = require('../config/cache');
 
 /**
  * @swagger
@@ -64,7 +65,7 @@ const { invoiceValidation, sanitizeQueryParams, handleValidationErrors } = requi
 // @desc    Get all invoices
 // @route   GET /api/invoices
 // @access  Private (Admin, Billing, Staff)
-router.get('/', protect, authorize('Admin', 'Billing', 'Staff'), sanitizeQueryParams, async (req, res) => {
+router.get('/', protect, authorize('Admin', 'Billing', 'Staff'), cacheMiddleware(300), sanitizeQueryParams, async (req, res) => {
   try {
     logger.info('Fetching invoices', { userId: req.user._id || req.user.id });
     
@@ -81,6 +82,24 @@ router.get('/', protect, authorize('Admin', 'Billing', 'Staff'), sanitizeQueryPa
       stack: error.stack,
       userId: req.user._id || req.user.id
     });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// @desc    Get single invoice by ID
+// @route   GET /api/invoices/:id
+// @access  Private (Admin, Billing, Staff)
+router.get('/:id', protect, authorize('Admin', 'Billing', 'Staff'), async (req, res) => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      const invoice = await Invoice.findOne({ id: req.params.id });
+      if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
+      return res.json({ success: true, data: invoice });
+    }
+    const invoice = global.memoryStore.invoices.find(i => i.id === req.params.id);
+    if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
+    res.json({ success: true, data: invoice });
+  } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -140,24 +159,22 @@ router.get('/', protect, authorize('Admin', 'Billing', 'Staff'), sanitizeQueryPa
  *                       type: number
  *                       minimum: 0
  *                       example: 2000
+ *               discount:
+ *                 type: number
+ *                 description: Discount as a percentage (0-100)
+ *                 default: 0
+ *                 example: 10
  *               taxRate:
  *                 type: number
  *                 description: Tax rate as percentage
  *                 default: 0
  *                 example: 17
+ *               notes:
+ *                 type: string
+ *                 description: Optional billing notes
  *     responses:
  *       201:
  *         description: Invoice created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/Invoice'
  *       400:
  *         description: Validation error
  *       401:
@@ -172,12 +189,14 @@ router.get('/', protect, authorize('Admin', 'Billing', 'Staff'), sanitizeQueryPa
 // @access  Private (Admin, Billing, Staff)
 router.post('/', protect, authorize('Admin', 'Billing', 'Staff'), invoiceValidation, async (req, res) => {
   try {
-    const { patientId, date, dueDate, paymentMethod, services, taxRate } = req.body;
+    const { patientId, date, dueDate, paymentMethod, services, taxRate, discount, notes } = req.body;
 
-    const subtotal = services.reduce((sum, s) => sum + Number(s.cost), 0);
-    const taxRateNum = Number(taxRate) || 0;
-    const taxAmount = Number((subtotal * taxRateNum / 100).toFixed(2));
-    const totalAmount = Number((subtotal + taxAmount).toFixed(2));
+    const subtotal       = services.reduce((sum, s) => sum + Number(s.cost), 0);
+    const discountNum    = Math.min(100, Math.max(0, Number(discount) || 0));
+    const discountAmount = Number((subtotal * discountNum / 100).toFixed(2));
+    const taxRateNum     = Number(taxRate) || 0;
+    const taxAmount      = Number(((subtotal - discountAmount) * taxRateNum / 100).toFixed(2));
+    const totalAmount    = Number((subtotal - discountAmount + taxAmount).toFixed(2));
 
     if (mongoose.connection.readyState === 1) {
       const patient = await Patient.findOne({ id: patientId });
@@ -194,12 +213,17 @@ router.post('/', protect, authorize('Admin', 'Billing', 'Staff'), invoiceValidat
         paymentMethod: paymentMethod || 'Cash',
         services: services.map(s => ({ name: s.name, cost: Number(s.cost) })),
         subtotal,
+        discount: discountNum,
+        discountAmount,
         taxRate: taxRateNum,
         taxAmount,
         totalAmount,
+        notes: notes || '',
         status: 'Unpaid'
       });
 
+      clearCachePattern('/api/invoices*');
+      logger.info('Invoice created', { id: invId, patientId, userId: req.user._id || req.user.id });
       return res.status(201).json({ success: true, data: invoice });
     } else {
       const store = global.memoryStore;
@@ -217,16 +241,22 @@ router.post('/', protect, authorize('Admin', 'Billing', 'Staff'), invoiceValidat
         paymentMethod: paymentMethod || 'Cash',
         services: services.map(s => ({ name: s.name, cost: Number(s.cost) })),
         subtotal,
+        discount: discountNum,
+        discountAmount,
         taxRate: taxRateNum,
         taxAmount,
         totalAmount,
+        notes: notes || '',
         status: 'Unpaid'
       };
 
       store.invoices.unshift(newInvoice);
+      clearCachePattern('/api/invoices*');
+      logger.info('Invoice created in memory store', { id: invId, patientId });
       return res.status(201).json({ success: true, data: newInvoice });
     }
   } catch (error) {
+    logger.error('Error creating invoice', { error: error.message });
     res.status(400).json({ success: false, error: error.message });
   }
 });
@@ -251,16 +281,6 @@ router.post('/', protect, authorize('Admin', 'Billing', 'Staff'), invoiceValidat
  *     responses:
  *       200:
  *         description: Invoice marked as paid successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/Invoice'
  *       401:
  *         description: Unauthorized or insufficient permissions
  *       404:
@@ -279,13 +299,41 @@ router.put('/:id/pay', protect, authorize('Admin', 'Billing', 'Staff'), async (r
 
       invoice.status = 'Paid';
       await invoice.save();
+      clearCachePattern('/api/invoices*');
+      logger.info('Invoice marked paid', { id: req.params.id, userId: req.user._id || req.user.id });
       return res.json({ success: true, data: invoice });
     } else {
       const store = global.memoryStore;
       const inv = store.invoices.find(i => i.id === req.params.id);
-      if (inv) inv.status = 'Paid';
+      if (!inv) return res.status(404).json({ success: false, error: 'Invoice record not found' });
+      inv.status = 'Paid';
+      clearCachePattern('/api/invoices*');
       return res.json({ success: true, data: inv });
     }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// @desc    Delete an invoice
+// @route   DELETE /api/invoices/:id
+// @access  Private (Admin only)
+router.delete('/:id', protect, authorize('Admin'), async (req, res) => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      const invoice = await Invoice.findOne({ id: req.params.id });
+      if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
+      await Invoice.deleteOne({ id: req.params.id });
+      clearCachePattern('/api/invoices*');
+      logger.info('Invoice deleted', { id: req.params.id, userId: req.user._id || req.user.id });
+      return res.json({ success: true, message: 'Invoice deleted successfully' });
+    }
+    const store = global.memoryStore;
+    const idx = store.invoices.findIndex(i => i.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, error: 'Invoice not found' });
+    store.invoices.splice(idx, 1);
+    clearCachePattern('/api/invoices*');
+    res.json({ success: true, message: 'Invoice deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

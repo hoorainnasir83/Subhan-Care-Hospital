@@ -5,6 +5,7 @@ const Doctor = require('../models/Doctor');
 const logger = require('../config/logger');
 const { protect, authorize } = require('../middleware/auth');
 const { doctorValidation, sanitizeQueryParams, handleValidationErrors } = require('../middleware/sanitization');
+const { cacheMiddleware, clearCachePattern } = require('../config/cache');
 
 /**
  * @swagger
@@ -60,7 +61,7 @@ const { doctorValidation, sanitizeQueryParams, handleValidationErrors } = requir
  *       500:
  *         description: Server error
  */
-router.get('/', protect, sanitizeQueryParams, async (req, res) => {
+router.get('/', protect, cacheMiddleware(300), sanitizeQueryParams, async (req, res) => {
   try {
     logger.info('Fetching doctors', { userId: req.user._id || req.user.id });
     
@@ -214,9 +215,11 @@ router.delete('/:id', protect, authorize('Admin', 'Staff'), async (req, res) => 
       const doctor = await Doctor.findOne({ id: req.params.id });
       if (!doctor) return res.status(404).json({ success: false, error: 'Doctor not found in roster' });
       await Doctor.deleteOne({ id: req.params.id });
+      clearCachePattern('/api/doctors*');
       return res.json({ success: true, message: 'Doctor roster record removed' });
     }
     global.memoryStore.doctors = global.memoryStore.doctors.filter(d => d.id !== req.params.id);
+    clearCachePattern('/api/doctors*');
     res.json({ success: true, message: 'Doctor roster record removed' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

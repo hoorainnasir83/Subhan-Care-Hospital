@@ -35,13 +35,24 @@ const InvoiceSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['Cash', 'Card', 'Bank Transfer'],
+    enum: ['Cash', 'Card', 'Bank Transfer', 'Insurance'],
     default: 'Cash'
   },
   services: [ServiceItemSchema],
   subtotal: {
     type: Number,
     required: true
+  },
+  discount: {
+    type: Number,
+    required: true,
+    default: 0,
+    min: [0, 'Discount cannot be negative']
+  },
+  discountAmount: {
+    type: Number,
+    required: true,
+    default: 0
   },
   taxRate: {
     type: Number,
@@ -61,10 +72,23 @@ const InvoiceSchema = new mongoose.Schema({
     enum: ['Paid', 'Unpaid'],
     default: 'Unpaid'
   },
+  notes: {
+    type: String,
+    default: ''
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
+});
+
+// Full-text search index
+InvoiceSchema.index({
+  patientName: 'text',
+  patientId: 'text'
+}, {
+  name: 'invoice_text_search',
+  weights: { patientName: 10, patientId: 5 }
 });
 
 module.exports = mongoose.model('Invoice', InvoiceSchema);

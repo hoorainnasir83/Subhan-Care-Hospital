@@ -5,6 +5,7 @@ const Patient = require('../models/Patient');
 const logger = require('../config/logger');
 const { protect, authorize } = require('../middleware/auth');
 const { patientValidation, sanitizeQueryParams, handleValidationErrors } = require('../middleware/sanitization');
+const { cacheMiddleware, clearCachePattern } = require('../config/cache');
 
 /**
  * @swagger
@@ -60,7 +61,7 @@ const { patientValidation, sanitizeQueryParams, handleValidationErrors } = requi
  *       500:
  *         description: Server error
  */
-router.get('/', protect, sanitizeQueryParams, async (req, res) => {
+router.get('/', protect, cacheMiddleware(300), sanitizeQueryParams, async (req, res) => {
   try {
     logger.info('Fetching patients', { userId: req.user._id || req.user.id });
     

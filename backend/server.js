@@ -137,6 +137,11 @@ app.use('/api/patients',     require('./routes/patients'));
 app.use('/api/doctors',      require('./routes/doctors'));
 app.use('/api/appointments', require('./routes/appointments'));
 app.use('/api/invoices',     require('./routes/invoices'));
+app.use('/api/search',       require('./routes/search'));
+app.use('/api/reports',      require('./routes/reports'));
+app.use('/api/inventory',    require('./routes/inventory'));
+app.use('/api/medical-records',  require('./routes/medicalRecords'));
+app.use('/api/prescriptions',    require('./routes/prescriptions'));
 
 // 404 Route handler
 app.use((req, res) => {
@@ -150,15 +155,48 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  logger.error('Unhandled error', {
+  let statusCode = err.statusCode || res.statusCode === 200 ? 500 : res.statusCode;
+  let message = err.message || 'Internal Server Error';
+
+  // Handle Mongoose Bad ObjectId (CastError)
+  if (err.name === 'CastError') {
+    statusCode = 400;
+    message = `Resource not found with invalid id format: ${err.value}`;
+  }
+
+  // Handle Mongoose Duplicate Key Error (E11000)
+  if (err.code === 11000) {
+    statusCode = 400;
+    const field = Object.keys(err.keyValue || {})[0] || 'field';
+    message = `Duplicate value entered for ${field}. Please use another value.`;
+  }
+
+  // Handle Mongoose Validation Error
+  if (err.name === 'ValidationError') {
+    statusCode = 400;
+    message = Object.values(err.errors).map(val => val.message).join(', ');
+  }
+
+  // Handle JWT Error
+  if (err.name === 'JsonWebTokenError') {
+    statusCode = 401;
+    message = 'Invalid authentication token';
+  }
+
+  logger.error('Unhandled server error', {
     message: err.message,
-    stack: err.stack,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     method: req.method,
     url: req.url,
     ip: req.ip,
-    statusCode: err.statusCode || 500
+    statusCode
   });
-  res.status(500).json({ success: false, error: err.message || 'Internal Server Error' });
+
+  res.status(statusCode).json({
+    success: false,
+    error: message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
 const PORT = process.env.PORT || 5000;

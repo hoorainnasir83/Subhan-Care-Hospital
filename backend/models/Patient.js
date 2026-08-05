@@ -64,4 +64,16 @@ const PatientSchema = new mongoose.Schema({
   }
 });
 
+// Full-text search index for advanced search
+PatientSchema.index({
+  name: 'text',
+  email: 'text',
+  phone: 'text',
+  cnic: 'text',
+  address: 'text'
+}, {
+  name: 'patient_text_search',
+  weights: { name: 10, cnic: 8, email: 5, phone: 3, address: 1 }
+});
+
 module.exports = mongoose.model('Patient', PatientSchema);

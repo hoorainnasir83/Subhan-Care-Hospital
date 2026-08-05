@@ -9,7 +9,6 @@ import {
 
 const SPECIALTIES = ['Cardiology','Pediatrics','Neurology','General Medicine','Orthopedics','Dermatology','Ophthalmology','Oncology','Psychiatry','Surgery'];
 
-// ✅ Show pagination even with 1 doctor
 const ITEMS_PER_PAGE = 1;
 
 const Doctors = () => {
@@ -21,9 +20,7 @@ const Doctors = () => {
   const [doctorToDelete, setDoctorToDelete]  = useState(null);
   const [doctorToView,   setDoctorToView]   = useState(null);
   const [formError,      setFormError]      = useState('');
-  
-  // ✅ Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage,    setCurrentPage]    = useState(1);
 
   const [name,         setName]         = useState('');
   const [specialty,    setSpecialty]    = useState('Cardiology');
@@ -32,20 +29,17 @@ const Doctors = () => {
   const [availability, setAvailability] = useState('');
   const [fee,          setFee]          = useState('');
 
-  // ✅ Filtered Doctors
   const filtered = doctors.filter(d =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     d.specialty.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ✅ Pagination Logic
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginatedDoctors = filtered.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
 
-  // ✅ Reset page on search
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
@@ -87,7 +81,6 @@ const Doctors = () => {
           <h2 className="text-xl font-bold font-outfit text-slate-800 dark:text-slate-200">Medical Staff Directory</h2>
           <p className="text-xs text-slate-400 font-medium">
             Manage doctors, consultation fees & patient allergy lists
-            {/* ✅ Doctor count badge */}
             {filtered.length > 0 && (
               <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-bold">
                 {filtered.length} doctors
@@ -117,7 +110,7 @@ const Doctors = () => {
         />
       </div>
 
-      {/* ✅ Pagination Info */}
+      {/* Pagination Info */}
       {filtered.length > 0 && (
         <div className="text-xs text-slate-400 font-medium">
           Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} doctors
@@ -131,7 +124,6 @@ const Doctors = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {/* ✅ Use paginatedDoctors */}
           {paginatedDoctors.map(doc => {
             const assignedPatients = getDoctorAssignedPatients(doc.id);
             return (
@@ -145,7 +137,8 @@ const Doctors = () => {
                       {doc.name.split(' ').map(n => n[0]).join('').slice(0,2)}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-800 dark:text-slate-200 leading-tight">{doc.name}</p>
+                      {/* ✅ Doctor name - Black color forced */}
+                      <p style={{ color: '#000000', fontWeight: 'bold', lineHeight: '1.25', fontSize: '14px' }}>{doc.name}</p>
                       <span className="text-xs bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 font-semibold px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900">
                         {doc.specialty}
                       </span>
@@ -183,7 +176,7 @@ const Doctors = () => {
         </div>
       )}
 
-      {/* ✅ Pagination Component */}
+      {/* Pagination */}
       {filtered.length > 0 && (
         <Pagination
           currentPage={currentPage}
