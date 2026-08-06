@@ -9,7 +9,7 @@ import {
 
 const SPECIALTIES = ['Cardiology','Pediatrics','Neurology','General Medicine','Orthopedics','Dermatology','Ophthalmology','Oncology','Psychiatry','Surgery'];
 
-const ITEMS_PER_PAGE = 1;
+const ITEMS_PER_PAGE = 6;
 
 const Doctors = () => {
   const { doctors, patients, appointments, addDoctor, deleteDoctor, canWrite } = useContext(AppContext);
@@ -137,8 +137,7 @@ const Doctors = () => {
                       {doc.name.split(' ').map(n => n[0]).join('').slice(0,2)}
                     </div>
                     <div>
-                      {/* ✅ Doctor name - Black color forced */}
-                      <p style={{ color: '#000000', fontWeight: 'bold', lineHeight: '1.25', fontSize: '14px' }}>{doc.name}</p>
+                      <p className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-snug">{doc.name}</p>
                       <span className="text-xs bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 font-semibold px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900">
                         {doc.specialty}
                       </span>

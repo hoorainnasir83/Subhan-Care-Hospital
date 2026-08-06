@@ -1,30 +1,36 @@
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose');
 
-/**
- * Email Service for Subhan Care HMS
- * Uses Gmail SMTP or falls back to console logging if not configured
- */
+// Helper to get SMTP configuration dynamically
+const getSmtpConfig = async () => {
+  let host = process.env.SMTP_HOST || 'smtp.ethereal.email';
+  let port = process.env.SMTP_PORT || 587;
+  let user = process.env.EMAIL_USER;
+  let pass = process.env.EMAIL_PASS;
+  let senderEmail = process.env.EMAIL_USER;
+  let senderName = 'Subhan Care HMS';
 
-let transporter = null;
-
-// Initialize transporter
-const initTransporter = () => {
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
-
-  if (user && pass) {
-    transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user, pass }
-    });
-    console.log('📧 Email service configured with Gmail');
-  } else {
-    console.log('⚠️  EMAIL_USER/EMAIL_PASS not set — reset codes will be logged to console');
+  // Check DB for overrides if connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const Setting = require('../models/Setting');
+      const settings = await Setting.findOne();
+      
+      if (settings && settings.email && settings.email.username) {
+        host = settings.email.smtpHost || host;
+        port = settings.email.smtpPort || port;
+        user = settings.email.username || user;
+        pass = settings.email.password || pass;
+        senderEmail = settings.email.senderEmail || user;
+        senderName = settings.email.senderName || senderName;
+      }
+    } catch (err) {
+      console.warn('⚠️ Could not fetch email settings from DB, falling back to ENV variables');
+    }
   }
-};
 
-// Initialize on load
-initTransporter();
+  return { host, port, user, pass, senderEmail, senderName };
+};
 
 /**
  * Send a password reset code email
@@ -33,6 +39,8 @@ initTransporter();
  * @returns {Promise<boolean>} - True if sent successfully
  */
 const sendResetCodeEmail = async (toEmail, code) => {
+  const config = await getSmtpConfig();
+  
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -52,7 +60,7 @@ const sendResetCodeEmail = async (toEmail, code) => {
                   <div style="width:56px; height:56px; background:rgba(255,255,255,0.2); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px;">
                     <span style="font-size:28px;">🏥</span>
                   </div>
-                  <h1 style="color:#ffffff; font-size:20px; font-weight:800; margin:0; letter-spacing:-0.5px;">Subhan Care Hospitals</h1>
+                  <h1 style="color:#ffffff; font-size:20px; font-weight:800; margin:0; letter-spacing:-0.5px;">${config.senderName}</h1>
                   <p style="color:rgba(255,255,255,0.8); font-size:13px; margin:4px 0 0;">Password Reset Request</p>
                 </td>
               </tr>
@@ -88,7 +96,7 @@ const sendResetCodeEmail = async (toEmail, code) => {
               <tr>
                 <td style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:20px 40px; text-align:center;">
                   <p style="color:#94a3b8; font-size:11px; margin:0;">
-                    © ${new Date().getFullYear()} Subhan Care Hospitals Ltd. All rights reserved.
+                    © ${new Date().getFullYear()} ${config.senderName}. All rights reserved.
                   </p>
                   <p style="color:#94a3b8; font-size:11px; margin:4px 0 0;">
                     This is an automated message. Please do not reply.
@@ -104,11 +112,22 @@ const sendResetCodeEmail = async (toEmail, code) => {
     </html>
   `;
 
-  // If transporter is configured, send email
-  if (transporter) {
+  if (config.user && config.pass) {
     try {
+      const transporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        auth: { user: config.user, pass: config.pass },
+        secure: config.port === 465 || (config.host.includes('gmail') ? false : false), // simplify for generic config
+      });
+      
+      // Override for common Gmail usage
+      if (config.host.includes('gmail') || (!config.host && config.user.includes('gmail'))) {
+          transporter.options.service = 'gmail';
+      }
+
       await transporter.sendMail({
-        from: `"Subhan Care HMS" <${process.env.EMAIL_USER}>`,
+        from: `"${config.senderName}" <${config.senderEmail}>`,
         to: toEmail,
         subject: `${code} — Your Password Reset Code | Subhan Care`,
         html: htmlContent
@@ -117,17 +136,12 @@ const sendResetCodeEmail = async (toEmail, code) => {
       return true;
     } catch (err) {
       console.error('❌ Email sending failed:', err.message);
-      // Fallback: log to console
-      console.log(`\n╔══════════════════════════════════════════╗`);
-      console.log(`║  RESET CODE for ${toEmail}`);
-      console.log(`║  Code: ${code}`);
-      console.log(`║  Expires in 15 minutes`);
-      console.log(`╚══════════════════════════════════════════╝\n`);
-      return true; // Still return true so user flow continues
     }
+  } else {
+    console.log('⚠️  SMTP credentials missing (both DB and ENV). Reset code logged to console.');
   }
 
-  // No transporter — log to console
+  // Fallback — log to console
   console.log(`\n╔══════════════════════════════════════════╗`);
   console.log(`║  RESET CODE for ${toEmail}`);
   console.log(`║  Code: ${code}`);

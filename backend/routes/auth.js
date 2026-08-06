@@ -339,15 +339,113 @@ router.get('/me', protect, async (req, res) => {
         id: req.user._id || req.user.id,
         name: req.user.name,
         email: req.user.email,
+        phone: req.user.phone || '', // Added
         role: req.user.role,
         doctorId: req.user.doctorId,
-        patientId: req.user.patientId
+        patientId: req.user.patientId,
+        avatar: req.user.avatar || ''
       }
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// @desc    Update current user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+router.put('/profile', protect, async (req, res) => {
+  try {
+    const { name, phone, email, avatar } = req.body;
+    let user;
+
+    if (mongoose.connection.readyState === 1) {
+      user = await User.findById(req.user._id || req.user.id);
+      if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+      
+      // Update fields
+      if (name) user.name = name;
+      if (phone) user.phone = phone;
+      if (email) user.email = email;
+      if (avatar) user.avatar = avatar;
+
+      await user.save();
+    } else {
+      user = global.memoryStore.users.find(u => u.id === (req.user.id || req.user._id));
+      if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+      
+      if (name) user.name = name;
+      if (phone) user.phone = phone;
+      if (email) user.email = email;
+      if (avatar) user.avatar = avatar;
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id || user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role,
+        avatar: user.avatar || ''
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// @desc    Update password
+// @route   PUT /api/auth/profile/password
+// @access  Private
+router.put('/profile/password', protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (mongoose.connection.readyState === 1) {
+      const user = await User.findById(req.user._id || req.user.id).select('+password');
+      if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) return res.status(400).json({ success: false, error: 'Incorrect current password' });
+
+      // Settings policy validation would ideally happen here, but for now we enforce generic complexity or rely on frontend validation
+      if (newPassword.length < 6) return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+      await user.save();
+    } else {
+      const user = global.memoryStore.users.find(u => u.id === (req.user.id || req.user._id));
+      if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+      
+      const isMatch = bcrypt.compareSync(currentPassword, user.passwordHash);
+      if (!isMatch) return res.status(400).json({ success: false, error: 'Incorrect current password' });
+
+      user.passwordHash = bcrypt.hashSync(newPassword, 10);
+    }
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// @desc    Get active mock sessions (For UI purposes)
+// @route   GET /api/auth/sessions
+// @access  Private
+router.get('/sessions', protect, (req, res) => {
+  res.json({
+    success: true,
+    data: [
+      { id: '1', device: 'Windows PC (Chrome)', ip: '192.168.1.5', current: true, lastActive: new Date().toISOString() },
+      { id: '2', device: 'iPhone 13 (Safari)', ip: '192.168.1.10', current: false, lastActive: new Date(Date.now() - 86400000).toISOString() }
+    ]
+  });
+});
+
 
 /**
  * @swagger

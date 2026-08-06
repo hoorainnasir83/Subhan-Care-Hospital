@@ -65,6 +65,5 @@ PrescriptionSchema.pre('save', function (next) {
 PrescriptionSchema.index({ patientId: 1, status: 1 });
 PrescriptionSchema.index({ doctorId: 1, issuedDate: -1 });
 PrescriptionSchema.index({ appointmentId: 1 });
-PrescriptionSchema.index({ prescriptionId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Prescription', PrescriptionSchema);

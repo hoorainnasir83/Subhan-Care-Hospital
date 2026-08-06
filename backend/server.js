@@ -142,62 +142,14 @@ app.use('/api/reports',      require('./routes/reports'));
 app.use('/api/inventory',    require('./routes/inventory'));
 app.use('/api/medical-records',  require('./routes/medicalRecords'));
 app.use('/api/prescriptions',    require('./routes/prescriptions'));
+app.use('/api/settings',         require('./routes/settings'));
+app.use('/api/system',           (req, res, next) => { req.url = '/system' + (req.url === '/' ? '' : req.url); next(); }, require('./routes/settings'));
+app.use('/api/security',         (req, res, next) => { req.url = '/security' + (req.url === '/' ? '' : req.url); next(); }, require('./routes/settings'));
 
-// 404 Route handler
-app.use((req, res) => {
-  logger.warn('404 Not Found', {
-    method: req.method,
-    url: req.url,
-    ip: req.ip
-  });
-  res.status(404).json({ success: false, error: 'Endpoint not found' });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  let statusCode = err.statusCode || res.statusCode === 200 ? 500 : res.statusCode;
-  let message = err.message || 'Internal Server Error';
-
-  // Handle Mongoose Bad ObjectId (CastError)
-  if (err.name === 'CastError') {
-    statusCode = 400;
-    message = `Resource not found with invalid id format: ${err.value}`;
-  }
-
-  // Handle Mongoose Duplicate Key Error (E11000)
-  if (err.code === 11000) {
-    statusCode = 400;
-    const field = Object.keys(err.keyValue || {})[0] || 'field';
-    message = `Duplicate value entered for ${field}. Please use another value.`;
-  }
-
-  // Handle Mongoose Validation Error
-  if (err.name === 'ValidationError') {
-    statusCode = 400;
-    message = Object.values(err.errors).map(val => val.message).join(', ');
-  }
-
-  // Handle JWT Error
-  if (err.name === 'JsonWebTokenError') {
-    statusCode = 401;
-    message = 'Invalid authentication token';
-  }
-
-  logger.error('Unhandled server error', {
-    message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    method: req.method,
-    url: req.url,
-    ip: req.ip,
-    statusCode
-  });
-
-  res.status(statusCode).json({
-    success: false,
-    error: message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+// ✅ Centralized Error Handling Middleware
+const { notFound, errorHandler } = require('./middleware/error');
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

@@ -2,15 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ✅ Base styles without @apply to avoid circular dependency */
+/* Base styles */
 body {
   background-color: #f8fafc;
   color: #1e293b;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-/* ✅ Light mode form elements – ensure text is always visible */
+/* Light mode form elements */
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -31,7 +32,7 @@ textarea::placeholder {
   color: #94a3b8 !important;
 }
 
-/* ✅ Custom Scrollbar */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -50,7 +51,7 @@ textarea::placeholder {
   background: #94a3b8;
 }
 
-/* ✅ Dark mode scrollbar */
+/* Dark mode scrollbar */
 .dark ::-webkit-scrollbar-thumb {
   background: #475569;
 }
@@ -59,13 +60,13 @@ textarea::placeholder {
   background: #64748b;
 }
 
-/* ✅ Dark Mode Base */
+/* Dark Mode Base */
 .dark body {
   background-color: #0f172a !important;
   color: #f1f5f9 !important;
 }
 
-/* ✅ Dark mode form elements */
+/* Dark mode form elements */
 .dark input[type="text"],
 .dark input[type="email"],
 .dark input[type="password"],
@@ -92,7 +93,7 @@ textarea::placeholder {
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
 }
 
-/* ✅ Dark mode table */
+/* Dark mode table */
 .dark table {
   color: #e2e8f0;
 }
@@ -110,7 +111,7 @@ textarea::placeholder {
   border-color: #334155;
 }
 
-/* ✅ Dark mode shadows */
+/* Dark mode shadows */
 .dark .shadow-sm {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
@@ -119,7 +120,7 @@ textarea::placeholder {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
 }
 
-/* ✅ Dark mode color overrides */
+/* Dark mode color overrides */
 .dark .bg-white {
   background-color: #1e293b !important;
 }
@@ -171,7 +172,7 @@ textarea::placeholder {
   border-color: #1e293b !important;
 }
 
-/* ✅ Smooth Theme Transition */
+/* Smooth Theme Transition */
 .theme-transition *,
 .theme-transition {
   transition-property: background-color, border-color, color, fill, stroke;
@@ -179,7 +180,7 @@ textarea::placeholder {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ✅ Dark mode alerts */
+/* Dark mode alerts */
 .dark .alert-success {
   background-color: #064e3b !important;
   color: #6ee7b7 !important;
@@ -190,7 +191,29 @@ textarea::placeholder {
   color: #fca5a5 !important;
 }
 
-/* ✅ Print Utilities */
+/* Responsive Table Helper */
+.table-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Minimum Touch Target (44x44px) */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Hide Scrollbar Helper */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Print Utilities */
 @media print {
   body {
     background: white !important;

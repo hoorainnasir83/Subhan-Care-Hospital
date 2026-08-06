@@ -5,439 +5,328 @@ const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
 const Appointment = require('../models/Appointment');
 const Invoice = require('../models/Invoice');
-const { protect } = require('../middleware/auth');
-const { cacheMiddleware } = require('../config/cache');
+const Medicine = require('../models/Medicine');
+const { protect, authorize } = require('../middleware/auth');
 
-/**
- * Generate PDF HTML report
- * This generates styled HTML that can be rendered as PDF client-side using html2pdf
- * or printed via window.print()
- */
+// Helper to check if DB is connected
+const checkDB = () => mongoose.connection.readyState === 1;
 
-// Helper: Generate styled HTML for reports
-const generateReportHTML = (title, subtitle, columns, rows, summary = {}) => {
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
+// Auth middleware - Only Admin can access reports
+const adminProtect = [protect, authorize('Admin')];
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Subhan Care HMS</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: #1e293b;
-      background: #fff;
-      padding: 40px;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 3px solid #2563eb;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
-    }
-    .header-left h1 {
-      font-size: 24px;
-      font-weight: 800;
-      color: #1e40af;
-      letter-spacing: -0.5px;
-    }
-    .header-left p {
-      font-size: 11px;
-      color: #64748b;
-      margin-top: 4px;
-    }
-    .header-right {
-      text-align: right;
-      font-size: 11px;
-      color: #64748b;
-    }
-    .header-right .date {
-      font-weight: 700;
-      color: #334155;
-      font-size: 12px;
-    }
-
-    .report-title {
-      background: linear-gradient(135deg, #eff6ff, #dbeafe);
-      border: 1px solid #bfdbfe;
-      border-radius: 8px;
-      padding: 16px 20px;
-      margin-bottom: 24px;
-    }
-    .report-title h2 {
-      font-size: 16px;
-      font-weight: 700;
-      color: #1e40af;
-    }
-    .report-title p {
-      font-size: 11px;
-      color: #3b82f6;
-      margin-top: 2px;
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-    .summary-card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 14px 16px;
-    }
-    .summary-card .label {
-      font-size: 10px;
-      font-weight: 700;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .summary-card .value {
-      font-size: 20px;
-      font-weight: 800;
-      color: #1e293b;
-      margin-top: 4px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 24px;
-    }
-    thead tr {
-      background: #1e40af;
-      color: white;
-    }
-    th {
-      padding: 10px 14px;
-      font-size: 11px;
-      font-weight: 700;
-      text-align: left;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    td {
-      padding: 10px 14px;
-      font-size: 12px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    tbody tr:nth-child(even) {
-      background: #f8fafc;
-    }
-    tbody tr:hover {
-      background: #eff6ff;
-    }
-
-    .status-badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 700;
-    }
-    .status-scheduled, .status-paid {
-      background: #dcfce7;
-      color: #166534;
-    }
-    .status-cancelled, .status-unpaid {
-      background: #fef2f2;
-      color: #991b1b;
-    }
-    .status-completed {
-      background: #dbeafe;
-      color: #1e40af;
-    }
-
-    .footer {
-      margin-top: 40px;
-      padding-top: 16px;
-      border-top: 2px solid #e2e8f0;
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #94a3b8;
-    }
-    .footer .confidential {
-      font-weight: 700;
-      color: #ef4444;
-    }
-
-    .total-row td {
-      font-weight: 800;
-      border-top: 2px solid #1e40af;
-      background: #eff6ff;
-    }
-
-    @media print {
-      body { padding: 20px; }
-      .no-print { display: none; }
-    }
-  </style>
-</head>
-<body>
-
-  <!-- Header -->
-  <div class="header">
-    <div class="header-left">
-      <h1>🏥 Subhan Care Hospitals Ltd.</h1>
-      <p>Hospital Management System — Official Report</p>
-    </div>
-    <div class="header-right">
-      <div class="date">${today}</div>
-      <div>Generated by Subhan Care HMS</div>
-      <div>Report ID: RPT-${Date.now().toString(36).toUpperCase()}</div>
-    </div>
-  </div>
-
-  <!-- Report Title -->
-  <div class="report-title">
-    <h2>${title}</h2>
-    <p>${subtitle}</p>
-  </div>
-
-  <!-- Summary Cards -->
-  ${Object.keys(summary).length > 0 ? `
-  <div class="summary-grid">
-    ${Object.entries(summary).map(([label, value]) => `
-      <div class="summary-card">
-        <div class="label">${label}</div>
-        <div class="value">${value}</div>
-      </div>
-    `).join('')}
-  </div>
-  ` : ''}
-
-  <!-- Data Table -->
-  <table>
-    <thead>
-      <tr>
-        ${columns.map(col => `<th>${col}</th>`).join('')}
-      </tr>
-    </thead>
-    <tbody>
-      ${rows.map(row => `
-        <tr>
-          ${row.map(cell => `<td>${cell}</td>`).join('')}
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
-
-  <!-- Footer -->
-  <div class="footer">
-    <span class="confidential">⚠️ CONFIDENTIAL — For authorized personnel only</span>
-    <span>© ${new Date().getFullYear()} Subhan Care Hospitals Ltd. All rights reserved.</span>
-  </div>
-
-</body>
-</html>`;
-};
-
-// Helper: Status badge HTML
-const statusBadge = (status) => {
-  const cls = status.toLowerCase().replace(/\s/g, '-');
-  return `<span class="status-badge status-${cls}">${status}</span>`;
-};
-
-// @desc    Generate report data for PDF export
-// @route   GET /api/reports/generate?type=patients|doctors|appointments|invoices|revenue
-// @access  Private
-router.get('/generate', protect, cacheMiddleware(300), async (req, res) => {
+// @desc    Get dashboard summary statistics
+// @route   GET /api/reports/dashboard
+// @access  Private/Admin
+router.get('/dashboard', adminProtect, async (req, res) => {
   try {
-    const { type = 'patients', startDate, endDate, status: statusFilter } = req.query;
-
-    let patients, doctors, appointments, invoices;
-
-    if (mongoose.connection.readyState === 1) {
-      patients = await Patient.find({}).sort({ registeredDate: -1 });
-      doctors = await Doctor.find({}).sort({ name: 1 });
-      appointments = await Appointment.find({}).sort({ date: -1 });
-      invoices = await Invoice.find({}).sort({ date: -1 });
-    } else {
-      const store = global.memoryStore;
-      patients = store.patients || [];
-      doctors = store.doctors || [];
-      appointments = store.appointments || [];
-      invoices = store.invoices || [];
+    if (!checkDB()) {
+      return res.status(503).json({ success: false, error: 'Database not available' });
     }
 
-    let title, subtitle, columns, rows, summary;
-
-    switch (type.toLowerCase()) {
-      case 'patients': {
-        let filtered = patients;
-        if (startDate && endDate) {
-          filtered = filtered.filter(p => p.registeredDate >= startDate && p.registeredDate <= endDate);
-        }
-
-        title = 'Patient Registry Report';
-        subtitle = `Complete patient listing — ${filtered.length} records${startDate ? ` (${startDate} to ${endDate})` : ''}`;
-        columns = ['#', 'Patient ID', 'Full Name', 'Gender', 'CNIC', 'Phone', 'Email', 'Blood Group', 'Registered'];
-        rows = filtered.map((p, i) => [
-          i + 1,
-          p.id,
-          p.name,
-          p.gender,
-          p.cnic || 'N/A',
-          p.phone,
-          p.email,
-          p.bloodGroup,
-          p.registeredDate || 'N/A'
-        ]);
-        summary = {
-          'Total Patients': filtered.length,
-          'Male': filtered.filter(p => p.gender === 'Male').length,
-          'Female': filtered.filter(p => p.gender === 'Female').length,
-          'Blood Groups': [...new Set(filtered.map(p => p.bloodGroup))].length + ' types'
-        };
-        break;
-      }
-
-      case 'doctors': {
-        title = 'Medical Staff Directory';
-        subtitle = `Physician roster — ${doctors.length} active doctors`;
-        columns = ['#', 'Doctor ID', 'Name', 'Specialty', 'Phone', 'Email', 'Fee ($)', 'Rating', 'Consults'];
-        rows = doctors.map((d, i) => [
-          i + 1,
-          d.id,
-          d.name,
-          d.specialty,
-          d.phone,
-          d.email,
-          `$${d.fee}`,
-          `⭐ ${(d.rating || 5).toFixed(1)}`,
-          d.consultsCount || 0
-        ]);
-        const avgFee = doctors.length ? Math.round(doctors.reduce((s, d) => s + d.fee, 0) / doctors.length) : 0;
-        summary = {
-          'Total Doctors': doctors.length,
-          'Average Fee': `$${avgFee}`,
-          'Specialties': [...new Set(doctors.map(d => d.specialty))].length,
-          'Total Consults': doctors.reduce((s, d) => s + (d.consultsCount || 0), 0)
-        };
-        break;
-      }
-
-      case 'appointments': {
-        let filtered = appointments;
-        if (startDate && endDate) {
-          filtered = filtered.filter(a => a.date >= startDate && a.date <= endDate);
-        }
-        if (statusFilter && statusFilter !== 'All') {
-          filtered = filtered.filter(a => a.status === statusFilter);
-        }
-
-        title = 'Appointments Schedule Report';
-        subtitle = `Appointment records — ${filtered.length} entries${startDate ? ` (${startDate} to ${endDate})` : ''}`;
-        columns = ['#', 'Appt ID', 'Patient', 'Doctor', 'Date', 'Time', 'Fee ($)', 'Status'];
-        rows = filtered.map((a, i) => [
-          i + 1,
-          a.id,
-          a.patientName,
-          a.doctorName,
-          a.date,
-          a.time,
-          `$${a.fee}`,
-          statusBadge(a.status)
-        ]);
-        const totalFees = filtered.reduce((s, a) => s + a.fee, 0);
-        summary = {
-          'Total Appointments': filtered.length,
-          'Scheduled': filtered.filter(a => a.status === 'Scheduled').length,
-          'Cancelled': filtered.filter(a => a.status === 'Cancelled').length,
-          'Total Fees': `$${totalFees.toLocaleString()}`
-        };
-        break;
-      }
-
-      case 'invoices': {
-        let filtered = invoices;
-        if (startDate && endDate) {
-          filtered = filtered.filter(i => i.date >= startDate && i.date <= endDate);
-        }
-        if (statusFilter && statusFilter !== 'All') {
-          filtered = filtered.filter(i => i.status === statusFilter);
-        }
-
-        title = 'Billing & Invoice Report';
-        subtitle = `Invoice records — ${filtered.length} entries${startDate ? ` (${startDate} to ${endDate})` : ''}`;
-        columns = ['#', 'Invoice ID', 'Patient', 'Issue Date', 'Due Date', 'Subtotal', 'Tax', 'Total ($)', 'Status'];
-        rows = filtered.map((inv, i) => [
-          i + 1,
-          inv.id,
-          inv.patientName,
-          inv.date,
-          inv.dueDate,
-          `$${inv.subtotal}`,
-          `${inv.taxRate}%`,
-          `$${inv.totalAmount.toFixed(2)}`,
-          statusBadge(inv.status)
-        ]);
-        const paidTotal = filtered.filter(i => i.status === 'Paid').reduce((s, i) => s + i.totalAmount, 0);
-        const unpaidTotal = filtered.filter(i => i.status === 'Unpaid').reduce((s, i) => s + i.totalAmount, 0);
-        summary = {
-          'Total Invoices': filtered.length,
-          'Paid': filtered.filter(i => i.status === 'Paid').length,
-          'Unpaid': filtered.filter(i => i.status === 'Unpaid').length,
-          'Revenue Collected': `$${paidTotal.toLocaleString()}`,
-          'Outstanding': `$${unpaidTotal.toLocaleString()}`
-        };
-        break;
-      }
-
-      case 'revenue': {
-        // Revenue summary report
-        const paidInvoices = invoices.filter(i => i.status === 'Paid');
-        const scheduledAppts = appointments.filter(a => a.status === 'Scheduled');
-        const invoiceRevenue = paidInvoices.reduce((s, i) => s + i.totalAmount, 0);
-        const apptRevenue = scheduledAppts.reduce((s, a) => s + a.fee, 0);
-
-        title = 'Revenue Analytics Report';
-        subtitle = `Financial overview — Generated ${new Date().toLocaleDateString()}`;
-        columns = ['Category', 'Count', 'Revenue ($)'];
-        rows = [
-          ['Paid Invoices', paidInvoices.length, `$${invoiceRevenue.toLocaleString()}`],
-          ['Scheduled Appointments', scheduledAppts.length, `$${apptRevenue.toLocaleString()}`],
-          ['<strong>Grand Total</strong>', paidInvoices.length + scheduledAppts.length, `<strong>$${(invoiceRevenue + apptRevenue).toLocaleString()}</strong>`]
-        ];
-        summary = {
-          'Total Revenue': `$${(invoiceRevenue + apptRevenue).toLocaleString()}`,
-          'Invoice Revenue': `$${invoiceRevenue.toLocaleString()}`,
-          'Appointment Revenue': `$${apptRevenue.toLocaleString()}`,
-          'Active Patients': patients.length,
-          'Active Doctors': doctors.length
-        };
-        break;
-      }
-
-      default:
-        return res.status(400).json({ success: false, error: 'Invalid report type' });
+    const { startDate, endDate } = req.query;
+    let matchStage = {};
+    if (startDate && endDate) {
+      matchStage.date = { $gte: startDate, $lte: endDate };
     }
 
-    const html = generateReportHTML(title, subtitle, columns, rows, summary);
+    const [
+      totalPatients,
+      totalDoctors,
+      todayAppointments,
+      unpaidInvoices,
+      todayInvoices,
+      lowStockCount
+    ] = await Promise.all([
+      Patient.countDocuments(),
+      Doctor.countDocuments(),
+      Appointment.find(matchStage).lean(),
+      Invoice.aggregate([
+        { $match: { status: 'Unpaid' } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      Invoice.aggregate([
+        { $match: { ...matchStage, status: 'Paid' } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      Medicine.aggregate([
+        { $project: { isLowStock: { $lte: ['$stockQuantity', '$lowStockThreshold'] } } },
+        { $match: { isLowStock: true } },
+        { $count: 'count' }
+      ])
+    ]);
+
+    const pendingBills = unpaidInvoices.length > 0 ? unpaidInvoices[0].total : 0;
+    
+    // Revenue = Paid invoices + Scheduled/Completed appointments
+    const invoiceRevToday = todayInvoices.length > 0 ? todayInvoices[0].total : 0;
+    const apptRevToday = todayAppointments
+      .filter(a => a.status === 'Scheduled' || a.status === 'Completed')
+      .reduce((sum, a) => sum + (a.fee || 0), 0);
+    
+    const todayRevenue = invoiceRevToday + apptRevToday;
+    const lowStockMedicines = lowStockCount.length > 0 ? lowStockCount[0].count : 0;
 
     res.json({
       success: true,
-      html,
-      meta: { title, recordCount: rows.length, generatedAt: new Date().toISOString() }
+      data: {
+        totalPatients,
+        totalDoctors,
+        todayAppointments: todayAppointments.length,
+        todayRevenue,
+        pendingBills,
+        lowStockMedicines
+      }
     });
 
   } catch (error) {
-    console.error('Report generation error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Dashboard report error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate dashboard report' });
+  }
+});
+
+// @desc    Get patient reports & monthly registrations
+// @route   GET /api/reports/patients
+// @access  Private/Admin
+router.get('/patients', adminProtect, async (req, res) => {
+  try {
+    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
+
+    const { startDate, endDate } = req.query;
+    
+    // Monthly registrations for current year
+    const currentYear = new Date().getFullYear().toString();
+    
+    const monthlyData = await Patient.aggregate([
+      { $match: { registeredDate: { $regex: `^${currentYear}` } } },
+      { 
+        $group: { 
+          _id: { $substr: ["$registeredDate", 5, 2] }, 
+          count: { $sum: 1 } 
+        } 
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const formattedMonthly = months.map((month, index) => {
+      const monthNum = (index + 1).toString().padStart(2, '0');
+      const found = monthlyData.find(d => d._id === monthNum);
+      return { month, patients: found ? found.count : 0 };
+    });
+
+    const genderStats = await Patient.aggregate([
+      { $group: { _id: "$gender", count: { $sum: 1 } } }
+    ]);
+
+    let matchStage = {};
+    if (startDate && endDate) {
+      matchStage.registeredDate = { $gte: startDate, $lte: endDate };
+    }
+
+    const patientsList = await Patient.find(matchStage).sort({ registeredDate: -1 }).limit(100);
+
+    res.json({
+      success: true,
+      data: {
+        monthlyRegistrations: formattedMonthly,
+        genderDistribution: genderStats.map(g => ({ name: g._id, value: g.count })),
+        list: patientsList
+      }
+    });
+
+  } catch (error) {
+    console.error('Patient report error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate patient report' });
+  }
+});
+
+// @desc    Get appointments report
+// @route   GET /api/reports/appointments
+// @access  Private/Admin
+router.get('/appointments', adminProtect, async (req, res) => {
+  try {
+    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
+    
+    const { startDate, endDate, status, doctorId } = req.query;
+    let matchStage = {};
+    if (startDate && endDate) {
+      matchStage.date = { $gte: startDate, $lte: endDate };
+    }
+    if (status && status !== 'All') {
+      matchStage.status = status;
+    }
+    if (doctorId && doctorId !== 'All') {
+      matchStage.doctorId = doctorId;
+    }
+
+    const statusDist = await Appointment.aggregate([
+      { $match: matchStage },
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+
+    const appointmentsList = await Appointment.find(matchStage).sort({ date: -1 }).limit(100);
+
+    res.json({
+      success: true,
+      data: {
+        statusDistribution: statusDist.map(s => ({ name: s._id, value: s.count })),
+        list: appointmentsList
+      }
+    });
+
+  } catch (error) {
+    console.error('Appointment report error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate appointment report' });
+  }
+});
+
+// @desc    Get revenue report
+// @route   GET /api/reports/revenue
+// @access  Private/Admin
+router.get('/revenue', adminProtect, async (req, res) => {
+  try {
+    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
+    
+    const currentYear = new Date().getFullYear().toString();
+    const { startDate, endDate } = req.query;
+    
+    let matchStageInvoice = { status: 'Paid' };
+    let matchStageAppt = { status: { $in: ['Scheduled', 'Completed'] } };
+
+    if (startDate && endDate) {
+      matchStageInvoice.date = { $gte: startDate, $lte: endDate };
+      matchStageAppt.date = { $gte: startDate, $lte: endDate };
+    } else {
+      matchStageInvoice.date = { $regex: `^${currentYear}` };
+      matchStageAppt.date = { $regex: `^${currentYear}` };
+    }
+    
+    const invoicesData = await Invoice.aggregate([
+      { $match: matchStageInvoice },
+      { 
+        $group: { 
+          _id: { $substr: ["$date", 5, 2] }, 
+          revenue: { $sum: '$totalAmount' } 
+        } 
+      }
+    ]);
+
+    const apptsData = await Appointment.aggregate([
+      { $match: matchStageAppt },
+      { 
+        $group: { 
+          _id: { $substr: ["$date", 5, 2] }, 
+          revenue: { $sum: '$fee' } 
+        } 
+      }
+    ]);
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const formattedRevenue = months.map((month, index) => {
+      const monthNum = (index + 1).toString().padStart(2, '0');
+      const invRev = invoicesData.find(d => d._id === monthNum)?.revenue || 0;
+      const apptRev = apptsData.find(d => d._id === monthNum)?.revenue || 0;
+      return { month, revenue: invRev + apptRev, invoices: invRev, appointments: apptRev };
+    });
+
+    let invoiceListMatch = {};
+    if (startDate && endDate) {
+      invoiceListMatch.date = { $gte: startDate, $lte: endDate };
+    }
+    const invoiceList = await Invoice.find(invoiceListMatch).sort({ date: -1 }).limit(100);
+
+    res.json({
+      success: true,
+      data: {
+        monthlyRevenue: formattedRevenue,
+        list: invoiceList
+      }
+    });
+
+  } catch (error) {
+    console.error('Revenue report error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate revenue report' });
+  }
+});
+
+// @desc    Get pharmacy/inventory report
+// @route   GET /api/reports/pharmacy
+// @access  Private/Admin
+router.get('/pharmacy', adminProtect, async (req, res) => {
+  try {
+    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
+    
+    const inventoryStats = await Medicine.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalValue: { $sum: { $multiply: ['$stockQuantity', '$sellingPrice'] } },
+          totalItems: { $sum: 1 },
+          totalStock: { $sum: '$stockQuantity' }
+        }
+      }
+    ]);
+
+    const categoryDist = await Medicine.aggregate([
+      { $group: { _id: "$category", count: { $sum: 1 } } }
+    ]);
+
+    const lowStockList = await Medicine.aggregate([
+      { $project: { id: 1, name: 1, category: 1, stockQuantity: 1, lowStockThreshold: 1, sellingPrice: 1, isLowStock: { $lte: ['$stockQuantity', '$lowStockThreshold'] } } },
+      { $match: { isLowStock: true } },
+      { $sort: { stockQuantity: 1 } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        stats: inventoryStats[0] || { totalValue: 0, totalItems: 0, totalStock: 0 },
+        categories: categoryDist.map(c => ({ name: c._id, value: c.count })),
+        lowStock: lowStockList,
+        list: lowStockList
+      }
+    });
+
+  } catch (error) {
+    console.error('Pharmacy report error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate pharmacy report' });
+  }
+});
+
+// @desc    Get doctor performance report
+// @route   GET /api/reports/doctors
+// @access  Private/Admin
+router.get('/doctors', adminProtect, async (req, res) => {
+  try {
+    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
+
+    const { department } = req.query;
+
+    const topDoctors = await Appointment.aggregate([
+      { $match: { status: { $in: ['Scheduled', 'Completed'] } } },
+      { $group: { _id: "$doctorId", name: { $first: "$doctorName" }, appointments: { $sum: 1 }, revenue: { $sum: "$fee" } } },
+      { $sort: { appointments: -1 } },
+      { $limit: 10 }
+    ]);
+
+    let matchStage = {};
+    if (department && department !== 'All') {
+      matchStage.specialty = department;
+    }
+
+    const doctorsList = await Doctor.find(matchStage).sort({ rating: -1, consultsCount: -1 });
+
+    res.json({
+      success: true,
+      data: {
+        topDoctors: topDoctors.map(d => ({ name: d.name, appointments: d.appointments, revenue: d.revenue })),
+        list: doctorsList
+      }
+    });
+
+  } catch (error) {
+    console.error('Doctor report error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate doctor report' });
   }
 });
 

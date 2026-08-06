@@ -15,12 +15,14 @@ import Inventory from './pages/Inventory';
 import Prescriptions from './pages/Prescriptions';
 import LandingPage from './pages/LandingPage';
 import NotFound from './pages/NotFound';
-import ErrorBoundary from './components/ErrorBoundary'; // ✅ NEW
+import ErrorPage from './pages/ErrorPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function AppContent() {
   const { user, logout, theme } = useContext(AppContext);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
   // If user not authenticated
@@ -39,30 +41,19 @@ function AppContent() {
     );
   }
 
-  // ✅ Filter tabs allowed for current user's role
+  // Filter tabs allowed for current user's role
   const role = user?.role || 'Staff';
   const allowedTabs = ROLE_ACCESS[role] || ROLE_ACCESS.Staff;
 
   // Router switcher with role-based permission check
   const renderContent = () => {
-    // If activeTab is not allowed for user's role, show Access Denied
     if (!allowedTabs.includes(activeTab)) {
       return (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-150 dark:border-slate-800 p-12 text-center shadow-sm my-8 max-w-lg mx-auto">
-          <div className="mx-auto h-16 w-16 rounded-full bg-rose-100 dark:bg-rose-950/40 flex items-center justify-center mb-4">
-            <span className="text-2xl">🔒</span>
-          </div>
-          <h3 className="text-xl font-bold font-outfit text-slate-800 dark:text-slate-200">Access Denied</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 mb-6">
-            Your role (<strong className="text-slate-700 dark:text-slate-300">{role}</strong>) does not have permission to view this page.
-          </p>
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/10 transition-colors"
-          >
-            Return to Dashboard
-          </button>
-        </div>
+        <ErrorPage
+          code={403}
+          message={`Your role (${role}) does not have permission to view this page.`}
+          onGoHome={() => setActiveTab('dashboard')}
+        />
       );
     }
 
@@ -93,12 +84,14 @@ function AppContent() {
   };
 
   return (
-    <div className={`min-h-screen theme-transition flex w-full ${theme === 'dark' ? 'dark' : ''}`}>
+    <div className={`min-h-screen theme-transition flex w-full overflow-x-hidden ${theme === 'dark' ? 'dark' : ''}`}>
       
       {/* Sidebar Navigation */}
       <Sidebar 
         isCollapsed={isCollapsed} 
         setIsCollapsed={setIsCollapsed} 
+        isMobileOpen={isMobileOpen}
+        setIsMobileOpen={setIsMobileOpen}
         activeTab={activeTab} 
         setActiveTab={setActiveTab}
         logout={logout}
@@ -107,8 +100,10 @@ function AppContent() {
 
       {/* Main Panel */}
       <div 
-        className="transition-all duration-300 min-h-screen flex flex-col flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100"
-        style={{ paddingLeft: isCollapsed ? '80px' : '264px' }}
+        className="transition-all duration-300 min-h-screen flex flex-col flex-1 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 w-full overflow-x-hidden"
+        style={{
+          paddingLeft: typeof window !== 'undefined' && window.innerWidth >= 1024 ? (isCollapsed ? '80px' : '264px') : '0px'
+        }}
       >
         {/* Sticky Top Navbar */}
         <Navbar 
@@ -117,18 +112,19 @@ function AppContent() {
           logout={logout} 
           isCollapsed={isCollapsed}
           setIsCollapsed={setIsCollapsed}
+          setIsMobileOpen={setIsMobileOpen}
         />
 
-        {/* Page Body - ✅ Wrapped with ErrorBoundary */}
-        <main className="flex-1 p-6 md:p-8 mt-16 max-w-7xl w-full mx-auto">
+        {/* Page Body - Wrapped with ErrorBoundary */}
+        <main className="flex-1 p-3 sm:p-6 md:p-8 mt-16 max-w-7xl w-full mx-auto overflow-x-hidden">
           <ErrorBoundary>
             {renderContent()}
           </ErrorBoundary>
         </main>
         
         {/* Footer */}
-        <footer className="py-4 text-center text-xs font-semibold text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900 no-print">
-          &copy; {new Date().getFullYear()} Subhan Care HMS. Built with React & Tailwind CSS.
+        <footer className="py-4 px-4 text-center text-xs font-semibold text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 no-print">
+          &copy; {new Date().getFullYear()} Subhan Care HMS. All rights reserved.
         </footer>
       </div>
     </div>
@@ -137,7 +133,6 @@ function AppContent() {
 
 function App() {
   return (
-    // ✅ Top Level ErrorBoundary
     <ErrorBoundary>
       <AppProvider>
         <AppContent />
