@@ -8,12 +8,74 @@ const nodemailer = require('nodemailer');
 const checkDB = () => mongoose.connection.readyState === 1;
 
 // Helper to get or create the singleton settings document
-const getSettingsDoc = async () => {
-  let settings = await Setting.findOne();
-  if (!settings) {
-    settings = await Setting.create({});
+const getMemorySettings = () => {
+  if (!global.memoryStore.settings) {
+    global.memoryStore.settings = {
+      hospital: {
+        name: 'Subhan Care HMS',
+        address: '123 Health Ave, Medical City',
+        phone: '+1 (555) 123-4567',
+        email: 'contact@subhancare.com',
+        website: 'https://subhancare.com',
+        emergencyContact: '911',
+        currency: 'USD',
+        timeZone: 'UTC',
+        dateFormat: 'MM/DD/YYYY',
+        logo: ''
+      },
+      system: {
+        appointmentDuration: 30,
+        openingHours: '09:00 - 17:00',
+        workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        language: 'English',
+        theme: 'light'
+      },
+      security: {
+        passwordPolicy: true,
+        minPasswordLength: 8,
+        requireUppercase: true,
+        requireNumbers: true,
+        requireSymbols: false,
+        maxLoginAttempts: 5,
+        accountLockTime: 15
+      },
+      notifications: {
+        emailNotifications: true,
+        smsNotifications: false,
+        appointmentReminders: true,
+        billingAlerts: true,
+        stockAlerts: true
+      },
+      email: {
+        smtpHost: '',
+        smtpPort: 587,
+        username: '',
+        password: '',
+        senderEmail: '',
+        senderName: 'Subhan Care'
+      },
+      sms: {
+        provider: 'None',
+        twilioSid: '',
+        twilioAuthToken: '',
+        twilioPhone: '',
+        customGatewayUrl: '',
+        customGatewayKey: ''
+      }
+    };
   }
-  return settings;
+  return global.memoryStore.settings;
+};
+
+const getSettingsDoc = async () => {
+  if (mongoose.connection.readyState === 1) {
+    let settings = await Setting.findOne();
+    if (!settings) {
+      settings = await Setting.create({});
+    }
+    return settings;
+  }
+  return getMemorySettings();
 };
 
 // @desc    Get all settings
@@ -21,11 +83,10 @@ const getSettingsDoc = async () => {
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database offline' });
     const settings = await getSettingsDoc();
     
     // Create a lean copy and obscure sensitive info
-    const safeSettings = settings.toObject();
+    const safeSettings = settings.toObject ? settings.toObject() : { ...settings };
     if (safeSettings.email) safeSettings.email.password = '';
     if (safeSettings.sms) safeSettings.sms.twilioAuthToken = '';
 
@@ -40,7 +101,6 @@ router.get('/', protect, async (req, res) => {
 // @access  Private/Admin
 router.put('/', protect, authorize('Admin'), async (req, res) => {
   try {
-    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database offline' });
     const settings = await getSettingsDoc();
     
     if (req.body.hospital) {
@@ -50,20 +110,31 @@ router.put('/', protect, authorize('Admin'), async (req, res) => {
       settings.email = { ...settings.email, ...req.body.email };
       // If password is sent empty, don't override the existing one
       if (!req.body.email.password) {
-        settings.email.password = (await Setting.findById(settings._id)).email.password;
+        if (mongoose.connection.readyState === 1) {
+          const existingSettings = await Setting.findById(settings._id);
+          settings.email.password = existingSettings?.email?.password || settings.email.password;
+        }
       }
     }
     if (req.body.sms) {
       settings.sms = { ...settings.sms, ...req.body.sms };
       if (!req.body.sms.twilioAuthToken) {
-        settings.sms.twilioAuthToken = (await Setting.findById(settings._id)).sms.twilioAuthToken;
+        if (mongoose.connection.readyState === 1) {
+          const existingSettings = await Setting.findById(settings._id);
+          settings.sms.twilioAuthToken = existingSettings?.sms?.twilioAuthToken || settings.sms.twilioAuthToken;
+        }
       }
     }
     if (req.body.notifications) {
       settings.notifications = { ...settings.notifications, ...req.body.notifications };
     }
 
-    await settings.save();
+    if (mongoose.connection.readyState === 1) {
+      await settings.save();
+    } else {
+      global.memoryStore.settings = settings;
+    }
+
     res.json({ success: true, data: settings });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to update settings' });

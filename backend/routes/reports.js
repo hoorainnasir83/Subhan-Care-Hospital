@@ -11,6 +11,31 @@ const { protect, authorize } = require('../middleware/auth');
 // Helper to check if DB is connected
 const checkDB = () => mongoose.connection.readyState === 1;
 
+// Fallback memory data for local development when MongoDB is unavailable
+const getMemoryStore = () => {
+  const store = global.memoryStore || {};
+  return {
+    patients: store.patients || [],
+    doctors: store.doctors || [],
+    appointments: store.appointments || [],
+    invoices: store.invoices || [],
+    medicines: store.medicines || []
+  };
+};
+
+const filterByDateRange = (items, field, startDate, endDate) => {
+  if (!startDate || !endDate) return items;
+  return items.filter(item => item[field] >= startDate && item[field] <= endDate);
+};
+
+const groupBy = (items, keyFn, valueFn = () => 1) => {
+  return items.reduce((acc, item) => {
+    const key = keyFn(item);
+    acc[key] = (acc[key] || 0) + valueFn(item);
+    return acc;
+  }, {});
+};
+
 // Auth middleware - Only Admin can access reports
 const adminProtect = [protect, authorize('Admin')];
 
@@ -19,11 +44,33 @@ const adminProtect = [protect, authorize('Admin')];
 // @access  Private/Admin
 router.get('/dashboard', adminProtect, async (req, res) => {
   try {
+    const { startDate, endDate } = req.query;
+
     if (!checkDB()) {
-      return res.status(503).json({ success: false, error: 'Database not available' });
+      const store = getMemoryStore();
+      const todayAppointments = filterByDateRange(store.appointments, 'date', startDate, endDate);
+      const unpaidInvoices = store.invoices.filter(i => i.status === 'Unpaid');
+      const todayPaidInvoices = filterByDateRange(store.invoices.filter(i => i.status === 'Paid'), 'date', startDate, endDate);
+      const lowStockCount = store.medicines.filter(m => m.stockQuantity <= m.lowStockThreshold).length;
+
+      const invoiceRevToday = todayPaidInvoices.reduce((sum, invoice) => sum + (invoice.totalAmount || 0), 0);
+      const apptRevToday = todayAppointments
+        .filter(a => a.status === 'Scheduled' || a.status === 'Completed')
+        .reduce((sum, a) => sum + (a.fee || 0), 0);
+
+      return res.json({
+        success: true,
+        data: {
+          totalPatients: store.patients.length,
+          totalDoctors: store.doctors.length,
+          todayAppointments: todayAppointments.length,
+          todayRevenue: invoiceRevToday + apptRevToday,
+          pendingBills: unpaidInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0),
+          lowStockMedicines: lowStockCount
+        }
+      });
     }
 
-    const { startDate, endDate } = req.query;
     let matchStage = {};
     if (startDate && endDate) {
       matchStage.date = { $gte: startDate, $lte: endDate };
@@ -89,11 +136,48 @@ router.get('/dashboard', adminProtect, async (req, res) => {
 // @access  Private/Admin
 router.get('/patients', adminProtect, async (req, res) => {
   try {
-    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
-
     const { startDate, endDate } = req.query;
-    
-    // Monthly registrations for current year
+
+    if (!checkDB()) {
+      const store = getMemoryStore();
+      const currentYear = new Date().getFullYear().toString();
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+      const monthlyCounts = store.patients
+        .filter(p => p.registeredDate?.startsWith(currentYear))
+        .reduce((acc, p) => {
+          const month = p.registeredDate?.slice(5, 7);
+          acc[month] = (acc[month] || 0) + 1;
+          return acc;
+        }, {});
+
+      const formattedMonthly = months.map((month, index) => {
+        const monthNum = (index + 1).toString().padStart(2, '0');
+        return { month, patients: monthlyCounts[monthNum] || 0 };
+      });
+
+      const genderStats = Object.entries(
+        store.patients.reduce((acc, p) => {
+          const gender = p.gender || 'Unknown';
+          acc[gender] = (acc[gender] || 0) + 1;
+          return acc;
+        }, {})
+      ).map(([name, value]) => ({ name, value }));
+
+      const patientsList = filterByDateRange(store.patients, 'registeredDate', startDate, endDate)
+        .sort((a, b) => (b.registeredDate || '').localeCompare(a.registeredDate || ''))
+        .slice(0, 100);
+
+      return res.json({
+        success: true,
+        data: {
+          monthlyRegistrations: formattedMonthly,
+          genderDistribution: genderStats,
+          list: patientsList
+        }
+      });
+    }
+
     const currentYear = new Date().getFullYear().toString();
     
     const monthlyData = await Patient.aggregate([
@@ -145,9 +229,32 @@ router.get('/patients', adminProtect, async (req, res) => {
 // @access  Private/Admin
 router.get('/appointments', adminProtect, async (req, res) => {
   try {
-    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
-    
     const { startDate, endDate, status, doctorId } = req.query;
+
+    if (!checkDB()) {
+      const store = getMemoryStore();
+      let appointments = filterByDateRange(store.appointments, 'date', startDate, endDate);
+      if (status && status !== 'All') {
+        appointments = appointments.filter(a => a.status === status);
+      }
+      if (doctorId && doctorId !== 'All') {
+        appointments = appointments.filter(a => a.doctorId === doctorId);
+      }
+
+      const statusDist = Object.entries(groupBy(appointments, a => a.status))
+        .map(([name, value]) => ({ name, value }));
+
+      const appointmentsList = appointments.sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 100);
+
+      return res.json({
+        success: true,
+        data: {
+          statusDistribution: statusDist,
+          list: appointmentsList
+        }
+      });
+    }
+    
     let matchStage = {};
     if (startDate && endDate) {
       matchStage.date = { $gte: startDate, $lte: endDate };
@@ -185,11 +292,46 @@ router.get('/appointments', adminProtect, async (req, res) => {
 // @access  Private/Admin
 router.get('/revenue', adminProtect, async (req, res) => {
   try {
-    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
-    
     const currentYear = new Date().getFullYear().toString();
     const { startDate, endDate } = req.query;
-    
+
+    if (!checkDB()) {
+      const store = getMemoryStore();
+      const invoices = filterByDateRange(store.invoices, 'date', startDate, endDate).filter(i => i.status === 'Paid');
+      const appts = filterByDateRange(store.appointments, 'date', startDate, endDate).filter(a => ['Scheduled', 'Completed'].includes(a.status));
+
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const invoiceByMonth = invoices.reduce((acc, invoice) => {
+        const month = invoice.date?.slice(5, 7);
+        acc[month] = (acc[month] || 0) + (invoice.totalAmount || 0);
+        return acc;
+      }, {});
+      const apptByMonth = appts.reduce((acc, appt) => {
+        const month = appt.date?.slice(5, 7);
+        acc[month] = (acc[month] || 0) + (appt.fee || 0);
+        return acc;
+      }, {});
+
+      const formattedRevenue = months.map((month, index) => {
+        const monthNum = (index + 1).toString().padStart(2, '0');
+        const invRev = invoiceByMonth[monthNum] || 0;
+        const apptRev = apptByMonth[monthNum] || 0;
+        return { month, revenue: invRev + apptRev, invoices: invRev, appointments: apptRev };
+      });
+
+      const invoiceList = filterByDateRange(store.invoices, 'date', startDate, endDate)
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+        .slice(0, 100);
+
+      return res.json({
+        success: true,
+        data: {
+          monthlyRevenue: formattedRevenue,
+          list: invoiceList
+        }
+      });
+    }
+
     let matchStageInvoice = { status: 'Paid' };
     let matchStageAppt = { status: { $in: ['Scheduled', 'Completed'] } };
 
@@ -254,7 +396,24 @@ router.get('/revenue', adminProtect, async (req, res) => {
 // @access  Private/Admin
 router.get('/pharmacy', adminProtect, async (req, res) => {
   try {
-    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
+    if (!checkDB()) {
+      const store = getMemoryStore();
+      const totalValue = store.medicines.reduce((sum, med) => sum + ((med.stockQuantity || 0) * (med.sellingPrice || 0)), 0);
+      const totalItems = store.medicines.length;
+      const totalStock = store.medicines.reduce((sum, med) => sum + (med.stockQuantity || 0), 0);
+      const categoryDist = Object.entries(groupBy(store.medicines, m => m.category)).map(([name, value]) => ({ name, value }));
+      const lowStockList = store.medicines.filter(m => m.stockQuantity <= m.lowStockThreshold).sort((a, b) => (a.stockQuantity || 0) - (b.stockQuantity || 0));
+
+      return res.json({
+        success: true,
+        data: {
+          stats: { totalValue, totalItems, totalStock },
+          categories: categoryDist,
+          lowStock: lowStockList,
+          list: lowStockList
+        }
+      });
+    }
     
     const inventoryStats = await Medicine.aggregate([
       {
@@ -298,9 +457,34 @@ router.get('/pharmacy', adminProtect, async (req, res) => {
 // @access  Private/Admin
 router.get('/doctors', adminProtect, async (req, res) => {
   try {
-    if (!checkDB()) return res.status(503).json({ success: false, error: 'Database not available' });
-
     const { department } = req.query;
+
+    if (!checkDB()) {
+      const store = getMemoryStore();
+      const filteredAppointments = store.appointments.filter(a => ['Scheduled', 'Completed'].includes(a.status));
+      const doctorPerf = Object.values(filteredAppointments.reduce((acc, appt) => {
+        const id = appt.doctorId || 'unknown';
+        if (!acc[id]) {
+          acc[id] = { id, name: appt.doctorName, appointments: 0, revenue: 0 };
+        }
+        acc[id].appointments += 1;
+        acc[id].revenue += appt.fee || 0;
+        return acc;
+      }, {}));
+
+      const topDoctors = doctorPerf.sort((a, b) => b.appointments - a.appointments).slice(0, 10);
+      const doctorsList = store.doctors
+        .filter(doc => !department || department === 'All' || doc.specialty === department)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+      return res.json({
+        success: true,
+        data: {
+          topDoctors,
+          list: doctorsList
+        }
+      });
+    }
 
     const topDoctors = await Appointment.aggregate([
       { $match: { status: { $in: ['Scheduled', 'Completed'] } } },

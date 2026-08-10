@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Patient = require('../models/Patient');
+const User = require('../models/User');
 const logger = require('../config/logger');
 const { protect, authorize } = require('../middleware/auth');
 const { patientValidation, sanitizeQueryParams, handleValidationErrors } = require('../middleware/sanitization');
@@ -187,11 +188,19 @@ router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), patientVa
     }
 
     const formattedCnic = cnic.trim();
+    const cleanEmail = email && typeof email === 'string' ? email.trim().toLowerCase() : '';
     const cleanAllergies = allergies && allergies.trim() ? allergies.trim() : 'None';
     const validSeverities = ['Critical', 'Moderate', 'Mild', 'None'];
     const cleanSeverity = validSeverities.includes(allergySeverity) ? allergySeverity : 'None';
 
     if (mongoose.connection.readyState === 1) {
+      // Prevent assigning an email to a patient that already belongs to a staff/admin user
+      if (cleanEmail) {
+        const existingUser = await User.findOne({ email: cleanEmail });
+        if (existingUser) {
+          return res.status(400).json({ success: false, error: 'Email is already associated with a staff or admin account. Use a different email for patients.' });
+        }
+      }
       const duplicate = await Patient.findOne({ cnic: formattedCnic });
       if (duplicate) {
         return res.status(400).json({ success: false, error: `TC-01: A patient with CNIC "${formattedCnic}" is already registered.` });
@@ -214,6 +223,13 @@ router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), patientVa
       return res.status(201).json({ success: true, data: patient });
     } else {
       const store = global.memoryStore;
+      const cleanEmailMem = email && typeof email === 'string' ? email.trim().toLowerCase() : '';
+      if (cleanEmailMem) {
+        const userConflict = store.users.find(u => u.email && u.email.toLowerCase() === cleanEmailMem);
+        if (userConflict) {
+          return res.status(400).json({ success: false, error: 'Email is already associated with a staff or admin account. Use a different email for patients.' });
+        }
+      }
       const duplicate = store.patients.find(p => p.cnic && p.cnic.trim() === formattedCnic);
       if (duplicate) {
         return res.status(400).json({ success: false, error: `TC-01: A patient with CNIC "${formattedCnic}" is already registered.` });

@@ -76,10 +76,10 @@ const ForgotPassword = ({ onBackToLogin, initialEmail = '' }) => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/auth/verify-reset-code`, {
+      const response = await fetch(`${API_URL}/auth/verify-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code, newPassword })
+        body: JSON.stringify({ email, code, newPassword, confirmPassword })
       });
 
       const data = await response.json();
@@ -105,7 +105,7 @@ const ForgotPassword = ({ onBackToLogin, initialEmail = '' }) => {
     setError('');
     setMessage('');
     try {
-      const response = await fetch(`${API_URL}/auth/resend-forgot-code`, {
+      const response = await fetch(`${API_URL}/auth/resend-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })

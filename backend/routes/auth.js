@@ -887,10 +887,11 @@ router.post('/send-login-otp', async (req, res) => {
     // Send OTP email
     await sendResetCodeEmail(targetEmail, otpCode);
 
-    logger.info('Login OTP sent', { email: targetEmail });
+    logger.info('Login OTP sent', { email: targetEmail, role: userFound.role });
     return res.json({
       success: true,
       email: targetEmail,
+      role: userFound.role,
       message: `Verification code sent to ${targetEmail}`
     });
 

@@ -28,6 +28,59 @@ const memoryStore = {
     { id: 'apt-3', patientId: 'SC-PAT-10004', patientName: 'Diana Prince',    doctorId: 'doc-3', doctorName: 'Dr. Emily Davis',   date: '2026-07-27', time: '14:00', fee: 200, status: 'Cancelled' },
     { id: 'apt-4', patientId: 'SC-PAT-10003', patientName: 'Charlie Brown',   doctorId: 'doc-2', doctorName: 'Dr. John Smith',    date: '2026-07-28', time: '09:30', fee: 120, status: 'Scheduled' }
   ],
+  settings: {
+    hospital: {
+      name: 'Subhan Care HMS',
+      address: '123 Health Ave, Medical City',
+      phone: '+1 (555) 123-4567',
+      email: 'contact@subhancare.com',
+      website: 'https://subhancare.com',
+      emergencyContact: '911',
+      currency: 'USD',
+      timeZone: 'UTC',
+      dateFormat: 'MM/DD/YYYY',
+      logo: ''
+    },
+    system: {
+      appointmentDuration: 30,
+      openingHours: '09:00 - 17:00',
+      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      language: 'English',
+      theme: 'light'
+    },
+    security: {
+      passwordPolicy: true,
+      minPasswordLength: 8,
+      requireUppercase: true,
+      requireNumbers: true,
+      requireSymbols: false,
+      maxLoginAttempts: 5,
+      accountLockTime: 15
+    },
+    notifications: {
+      emailNotifications: true,
+      smsNotifications: false,
+      appointmentReminders: true,
+      billingAlerts: true,
+      stockAlerts: true
+    },
+    email: {
+      smtpHost: '',
+      smtpPort: 587,
+      username: '',
+      password: '',
+      senderEmail: '',
+      senderName: 'Subhan Care'
+    },
+    sms: {
+      provider: 'None',
+      twilioSid: '',
+      twilioAuthToken: '',
+      twilioPhone: '',
+      customGatewayUrl: '',
+      customGatewayKey: ''
+    }
+  },
   invoices: [
     { id: 'INV-1001', patientId: 'SC-PAT-10001', patientName: 'Alice Johnson', date: '2026-07-15', dueDate: '2026-07-22', paymentMethod: 'Card',          services: [{ name: 'General Cardiology Consultation', cost: 150 }, { name: 'Electrocardiogram (ECG)', cost: 80 }],       subtotal: 230,  taxRate: 8,  taxAmount: 18.4, totalAmount: 248.4, status: 'Paid' },
     { id: 'INV-1002', patientId: 'SC-PAT-10002', patientName: 'Bob Smith',      date: '2026-07-18', dueDate: '2026-07-25', paymentMethod: 'Cash',          services: [{ name: 'Physician Consultation', cost: 100 }, { name: 'Urinalysis & Lab Workup', cost: 45 }],              subtotal: 145,  taxRate: 5,  taxAmount: 7.25, totalAmount: 152.25, status: 'Unpaid' },

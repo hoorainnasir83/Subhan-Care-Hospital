@@ -185,15 +185,19 @@ const Login = ({ onBack }) => {
       const json = await res.json();
 
       if (json.success) {
-        setTargetEmail(json.email || identifier.trim());
-        setStep(2);
+        // If user is on the patient portal but the found account is staff/admin,
+        // block the patient login and show an explicit error.
+        if (portalMode === 'patient' && json.role && json.role !== 'Patient') {
+          setError('This email belongs to hospital staff or admin. Please use Staff Login.');
+        } else {
+          setTargetEmail(json.email || identifier.trim());
+          setStep(2);
+        }
       } else {
-        setTargetEmail(identifier.trim());
-        setStep(2);
+        setError(json.error || 'No account found with this email or patient ID.');
       }
     } catch {
-      setTargetEmail(identifier.trim());
-      setStep(2);
+      setError('Connection error. Please try again later.');
     } finally {
       setIsLoading(false);
     }
