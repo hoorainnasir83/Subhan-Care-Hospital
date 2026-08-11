@@ -62,7 +62,7 @@ jobs:
       - name: Build Frontend
         run: |
           cd frontend
-          echo "VITE_API_URL=http://localhost:5000" > .env
+          echo "VITE_API_URL=http://localhost:5000/api" > .env
           npm run build
 
       - name: Check Build Output
@@ -91,7 +91,7 @@ jobs:
       - name: Frontend Security Audit
         run: |
           cd frontend
-          npm install
+          npm install --legacy-peer-deps --force
           npm audit --audit-level=high || true
 
   quality:
@@ -107,4 +107,3 @@ jobs:
           ls backend/
           ls frontend/src/
           echo "All checks passed!"
-
