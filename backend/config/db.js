@@ -4,6 +4,14 @@ const mongoose = require('mongoose');
 mongoose.set('bufferCommands', false);
 
 const connectDB = async () => {
+  const forceMemory = (process.env.FORCE_MEMORY_STORE || '').toString().toLowerCase() === 'true';
+
+  if (forceMemory) {
+    console.log('🛑 FORCE_MEMORY_STORE is set — skipping MongoDB connection and using in-memory store.');
+    console.log(`🗄️  Running with in-memory data store — all data resets on server restart.`);
+    return;
+  }
+
   let uri = process.env.MONGO_URI || process.env.MONGODB_URI || '';
 
   const isValidUri = uri &&

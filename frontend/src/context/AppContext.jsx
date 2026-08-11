@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { io as ioClient } from 'socket.io-client';
 
 export const AppContext = createContext();
 
@@ -57,6 +58,7 @@ export const AppProvider = ({ children }) => {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
   // Sync theme & settings locally
   useEffect(() => { localStorage.setItem('hms_theme', theme); }, [theme]);
@@ -158,6 +160,34 @@ export const AppProvider = ({ children }) => {
     }
   }, [token]);
 
+  // Socket.io client for real-time notifications
+  useEffect(() => {
+    if (!token) return undefined;
+    const raw = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const base = raw.replace(/\/api\/?$/, '');
+    const socket = ioClient(base, { transports: ['websocket'] });
+
+    socket.on('connect', () => console.info('Socket connected', socket.id));
+    socket.on('invoice:created', (payload) => {
+      if (payload?.invoice) {
+        setInvoices(prev => [payload.invoice, ...prev]);
+        const note = { id: `inv-created-${payload.invoice.id}-${Date.now()}`, text: `New invoice ${payload.invoice.id} created.`, time: Date.now(), type: 'invoice' };
+        setNotifications(prev => [note, ...prev].slice(0, 50));
+        toast(`New invoice ${payload.invoice.id} created.`);
+      }
+    });
+    socket.on('invoice:paid', (payload) => {
+      if (payload?.invoice) {
+        setInvoices(prev => prev.map(i => (i.id === payload.invoice.id ? payload.invoice : i)));
+        const note = { id: `inv-paid-${payload.invoice.id}-${Date.now()}`, text: `Invoice ${payload.invoice.id} marked as paid.`, time: Date.now(), type: 'invoice' };
+        setNotifications(prev => [note, ...prev].slice(0, 50));
+        toast.success(`Invoice ${payload.invoice.id} marked as paid.`);
+      }
+    });
+
+    return () => { socket.disconnect(); };
+  }, [token]);
+
   // Verify token and check session on reload
   const checkSession = async () => {
     if (!token) return;
@@ -179,6 +209,8 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     checkSession();
   }, []);
+
+  const clearNotifications = () => setNotifications([]);
 
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
@@ -564,12 +596,14 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
+      token,
       theme, toggleTheme,
       user, login, logout, canWrite, isLoading,
       doctors, addDoctor, deleteDoctor,
       patients, addPatient, deletePatient,
       appointments, bookAppointment, cancelAppointment, rescheduleAppointment, getAvailableSlots,
       invoices, addInvoice, markInvoicePaid,
+      notifications, clearNotifications,
       medicines, addMedicine, updateMedicine, adjustStock, deleteMedicine, fetchMedicines,
       settings, updateSettings, exportBackup, restoreBackup,
       stats,

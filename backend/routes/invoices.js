@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const Invoice = require('../models/Invoice');
 const Patient = require('../models/Patient');
 const logger = require('../config/logger');
+const notifications = require('../utils/notifications');
 const { protect, authorize } = require('../middleware/auth');
 const { invoiceValidation, sanitizeQueryParams, handleValidationErrors } = require('../middleware/sanitization');
 const { cacheMiddleware, clearCachePattern } = require('../config/cache');
@@ -224,6 +225,14 @@ router.post('/', protect, authorize('Admin', 'Billing', 'Staff'), invoiceValidat
 
       clearCachePattern('/api/invoices*');
       logger.info('Invoice created', { id: invId, patientId, userId: req.user._id || req.user.id });
+
+      try {
+        const patient = await Patient.findOne({ id: patientId });
+        notifications.invoiceCreated(req.app, invoice, patient);
+      } catch (err) {
+        logger.error('Failed to trigger invoice notifications', { error: err.message, invoiceId: invId });
+      }
+
       return res.status(201).json({ success: true, data: invoice });
     } else {
       const store = global.memoryStore;
@@ -253,6 +262,14 @@ router.post('/', protect, authorize('Admin', 'Billing', 'Staff'), invoiceValidat
       store.invoices.unshift(newInvoice);
       clearCachePattern('/api/invoices*');
       logger.info('Invoice created in memory store', { id: invId, patientId });
+
+      try {
+        const patient = store.patients.find(p => p.id === patientId);
+        notifications.invoiceCreated(req.app, newInvoice, patient);
+      } catch (err) {
+        logger.error('Failed to trigger invoice notifications (memory)', { error: err.message, invoiceId: invId });
+      }
+
       return res.status(201).json({ success: true, data: newInvoice });
     }
   } catch (error) {
@@ -301,6 +318,14 @@ router.put('/:id/pay', protect, authorize('Admin', 'Billing', 'Staff'), async (r
       await invoice.save();
       clearCachePattern('/api/invoices*');
       logger.info('Invoice marked paid', { id: req.params.id, userId: req.user._id || req.user.id });
+
+      try {
+        const patient = await Patient.findOne({ id: invoice.patientId });
+        notifications.invoicePaid(req.app, invoice, patient);
+      } catch (err) {
+        logger.error('Failed to trigger invoice paid notifications', { error: err.message, invoiceId: req.params.id });
+      }
+
       return res.json({ success: true, data: invoice });
     } else {
       const store = global.memoryStore;
@@ -308,6 +333,14 @@ router.put('/:id/pay', protect, authorize('Admin', 'Billing', 'Staff'), async (r
       if (!inv) return res.status(404).json({ success: false, error: 'Invoice record not found' });
       inv.status = 'Paid';
       clearCachePattern('/api/invoices*');
+
+      try {
+        const patient = store.patients.find(p => p.id === inv.patientId);
+        notifications.invoicePaid(req.app, inv, patient);
+      } catch (err) {
+        logger.error('Failed to trigger invoice paid notifications (memory)', { error: err.message, invoiceId: req.params.id });
+      }
+
       return res.json({ success: true, data: inv });
     }
   } catch (error) {

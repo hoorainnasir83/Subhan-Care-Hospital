@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const helmet = require('helmet');
@@ -52,7 +54,11 @@ const forgotPasswordLimiter = rateLimit({
 });
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
 app.use(express.json());
 
 // ✅ Security Headers Middleware (Helmet)
@@ -137,6 +143,8 @@ app.use('/api/patients',     require('./routes/patients'));
 app.use('/api/doctors',      require('./routes/doctors'));
 app.use('/api/appointments', require('./routes/appointments'));
 app.use('/api/invoices',     require('./routes/invoices'));
+app.use('/api/payments',     require('./routes/payments'));
+app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/search',       require('./routes/search'));
 app.use('/api/reports',      require('./routes/reports'));
 app.use('/api/inventory',    require('./routes/inventory'));
@@ -152,7 +160,27 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+io.on('connection', (socket) => {
+  logger.info('Socket.io client connected', { socketId: socket.id });
+
+  socket.on('disconnect', () => {
+    logger.info('Socket.io client disconnected', { socketId: socket.id });
+  });
+});
+
+app.set('io', io);
+
+server.listen(PORT, () => {
   logger.info(`✅ Server running on port ${PORT}`);
   logger.info(`🛡️  Rate limiting enabled`);
   logger.info(`📋 Environment: ${process.env.NODE_ENV || 'development'}`);

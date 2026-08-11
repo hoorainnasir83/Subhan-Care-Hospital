@@ -3,7 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { Printer, Check, ArrowLeft, Activity, Mail, Phone, MapPin, CreditCard, ShieldCheck, X, CheckCircle2, Lock } from 'lucide-react';
 
 const InvoiceDetails = ({ invoiceId, onClose }) => {
-  const { invoices, patients, settings, markInvoicePaid, canWrite } = useContext(AppContext);
+  const { invoices, patients, settings, markInvoicePaid, canWrite, token } = useContext(AppContext);
   const invoice = invoices.find(inv => inv.id === invoiceId);
   const patient = patients.find(p => p.id === (invoice?.patientId));
   const writeAllowed = canWrite('billing');
@@ -34,7 +34,7 @@ const InvoiceDetails = ({ invoiceId, onClose }) => {
     window.print();
   };
 
-  const handleOnlinePaymentSubmit = (e) => {
+  const handleOnlinePaymentSubmit = async (e) => {
     e.preventDefault();
     setCheckoutError('');
 
@@ -44,16 +44,43 @@ const InvoiceDetails = ({ invoiceId, onClose }) => {
         setCheckoutError(`Please enter a valid 11-digit ${selectedGateway} mobile account number.`);
         return;
       }
-    } else if (selectedGateway === 'Stripe') {
-      if (!cardNumber || !cardExpiry || !cardCvc) {
-        setCheckoutError('Please enter all card details.');
-        return;
-      }
     }
 
-    setIsProcessing(true);
+    if (selectedGateway === 'Stripe') {
+      setIsProcessing(true);
+      try {
+        const raw = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const API_URL = raw.replace(/\/$/, '').endsWith('/api') ? raw.replace(/\/$/, '') : `${raw.replace(/\/$/, '')}/api`;
 
-    // Simulate real-time Gateway API authorization latency
+        const res = await fetch(`${API_URL}/payments/checkout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            invoiceId: invoice.id,
+            successUrl: `${window.location.origin}/payments/success`,
+            cancelUrl: `${window.location.origin}/payments/cancel`,
+            customerEmail: patient?.email
+          })
+        });
+        const json = await res.json();
+        if (json.success && json.url) {
+          window.location.href = json.url;
+          return;
+        }
+        setCheckoutError(json.error || 'Failed to create checkout session');
+      } catch (err) {
+        setCheckoutError(err.message || 'Checkout request failed');
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // Fallback local simulation for other gateways
+    setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
       setPaymentSuccess(true);

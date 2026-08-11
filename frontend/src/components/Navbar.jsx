@@ -3,8 +3,9 @@ import { AppContext } from '../context/AppContext';
 import { Menu, Bell, Calendar as CalendarIcon, LogOut, Sun, Moon } from 'lucide-react';
 
 const Navbar = ({ activeTab, user, logout, isCollapsed, setIsMobileOpen }) => {
-  const { theme, toggleTheme } = useContext(AppContext);
+  const { theme, toggleTheme, notifications, clearNotifications } = useContext(AppContext);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
 
   // Helper to format tab name for breadcrumbs
   const getBreadcrumb = () => {
@@ -78,14 +79,42 @@ const Navbar = ({ activeTab, user, logout, isCollapsed, setIsMobileOpen }) => {
 
         {/* Notifications */}
         <div className="relative">
-          <button 
-            className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative min-h-[44px] min-w-[44px] flex items-center justify-center" 
+          <button
+            onClick={() => setShowNotificationsDropdown(prev => !prev)}
+            className="p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Notifications"
             aria-label="View Notifications"
           >
             <Bell className="h-5 w-5" />
-            <span className="absolute top-2 right-2 h-2 w-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
+            {notifications && notifications.length > 0 && (
+              <span className="absolute top-2 right-2 h-3 min-w-3 px-1 text-[10px] leading-4 bg-emerald-500 text-white rounded-full ring-2 ring-white dark:ring-slate-900 text-center font-semibold">
+                {notifications.length}
+              </span>
+            )}
           </button>
+
+          {showNotificationsDropdown && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowNotificationsDropdown(false)}></div>
+              <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-auto bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="px-4 py-2 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+                  <p className="text-sm font-semibold">Notifications</p>
+                  <button onClick={() => { clearNotifications(); }} className="text-xs text-slate-400 hover:text-slate-600">Mark all read</button>
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(!notifications || notifications.length === 0) && (
+                    <div className="p-4 text-xs text-slate-500">No notifications</div>
+                  )}
+                  {notifications && notifications.map((n) => (
+                    <div key={n.id} className="p-3 text-xs">
+                      <div className="font-semibold text-slate-800 dark:text-slate-100">{n.text}</div>
+                      <div className="text-[11px] text-slate-400 mt-1">{new Date(n.time).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Divider */}
