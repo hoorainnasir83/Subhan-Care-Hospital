@@ -6,7 +6,7 @@ import { AppContext } from '../context/AppContext';
 
 const inputCls = 'px-3 py-2.5 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full transition-colors font-medium';
 
-const emptyMed = () => ({ name: '', dosage: '', frequency: '', duration: '', instructions: '' });
+const emptyMed = () => ({ name: '', medicineId: '', dosage: '', frequency: '', duration: '', instructions: '' });
 
 const PrescriptionForm = ({ prescriptionId = null, patientId = '', patientName = '', onSuccess, onCancel }) => {
   const { patients, doctors, user } = useContext(AppContext);
@@ -76,6 +76,9 @@ const PrescriptionForm = ({ prescriptionId = null, patientId = '', patientName =
 
   const diagLen = form.diagnosis.length;
 
+  // ✅ Get all selected medicine IDs for duplicate prevention
+  const selectedMedicineIds = form.medications.map(m => m.medicineId).filter(Boolean);
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-6 shadow-xl max-w-3xl mx-auto">
       <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
@@ -143,7 +146,7 @@ const PrescriptionForm = ({ prescriptionId = null, patientId = '', patientName =
           </div>
         </div>
 
-        {/* Refills Allowed */}
+        {/* Refills & Appointment */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">Refills Allowed</label>
@@ -168,10 +171,17 @@ const PrescriptionForm = ({ prescriptionId = null, patientId = '', patientName =
             </button>
           </div>
           <div className="space-y-3">
+            {/* ✅ Pass selectedMedicineIds for duplicate prevention */}
             {form.medications.map((med, idx) => (
-              <MedicationRow key={idx} med={med} index={idx}
-                onChange={handleMedChange} onRemove={() => removeMed(idx)}
-                canRemove={form.medications.length > 1} />
+              <MedicationRow
+                key={idx}
+                med={med}
+                index={idx}
+                onChange={handleMedChange}
+                onRemove={() => removeMed(idx)}
+                canRemove={form.medications.length > 1}
+                selectedMedicineIds={selectedMedicineIds}
+              />
             ))}
           </div>
         </div>
