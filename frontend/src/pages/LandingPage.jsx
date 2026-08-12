@@ -4,10 +4,11 @@ import {
   Activity, ArrowRight, Heart, Shield, Clock, Star
 } from 'lucide-react';
 
-const LandingPage = ({ onLoginClick }) => {
+const LandingPage = ({ onLoginClick, onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen]         = useState(false);
   const [searchQuery, setSearchQuery]       = useState('');
+  const [language, setLanguage]             = useState('EN');
 
   const navLinks = [
     { label: 'Patient Portal', dropdown: ['Book Appointment', 'Diagnostic Reports', 'Medical History', 'Billing'] },
@@ -26,13 +27,19 @@ const LandingPage = ({ onLoginClick }) => {
     <div className="min-h-screen bg-white font-sans overflow-x-hidden">
 
       {/* ── TOP BAR ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-gray-100 py-1.5 px-4 hidden md:block">
+      <div className="bg-white border-b border-gray-100 py-1.5 px-4 hidden md:block relative z-[60]">
         <div className="max-w-7xl mx-auto flex items-center justify-end">
           {/* Top nav links */}
           <div className="flex items-center gap-6 text-[13px] text-gray-600">
-            <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600">
-              🌐 English <ChevronDown size={12} />
-            </span>
+            <div className="relative group">
+              <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600 py-1 font-medium">
+                🌐 {language === 'EN' ? 'English' : 'Urdu (اردو)'} <ChevronDown size={12} />
+              </span>
+              <div className="absolute left-0 top-full mt-0 w-32 bg-white rounded-xl shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2">
+                <button onClick={() => setLanguage('EN')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600">English</button>
+                <button onClick={() => setLanguage('UR')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600">Urdu (اردو)</button>
+              </div>
+            </div>
             <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600">
               📍 Islamabad <ChevronDown size={12} />
             </span>
@@ -72,9 +79,13 @@ const LandingPage = ({ onLoginClick }) => {
                   </button>
                   <div className="absolute left-0 top-full mt-0 w-52 bg-white rounded-xl shadow-xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2">
                     {link.dropdown.map(item => (
-                      <a key={item} href="#" className="block px-4 py-2.5 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                      <button 
+                        key={item} 
+                        onClick={() => link.label === 'Health Library' ? onNavigate('health-library') : onLoginClick()}
+                        className="w-full text-left block px-4 py-2.5 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                      >
                         {item}
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -137,11 +148,25 @@ const LandingPage = ({ onLoginClick }) => {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="lg:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-3">
-            {['Home', ...navLinks.map(l => l.label), 'Contact Us'].map(item => (
-              <a key={item} href="#" className="block text-sm font-medium text-gray-700 hover:text-blue-600 py-2 border-b border-gray-50">
-                {item}
-              </a>
+            {navLinks.map(link => (
+              <div key={link.label}>
+                <div className="font-bold text-gray-800 py-2 px-2 border-b border-gray-100">{link.label}</div>
+                <div className="pl-4 border-l-2 border-gray-100 ml-2 mb-2 mt-1">
+                  {link.dropdown.map(item => (
+                    <button 
+                      key={item} 
+                      onClick={() => link.label === 'Health Library' ? onNavigate('health-library') : onLoginClick()}
+                      className="w-full text-left block text-sm font-medium text-gray-600 hover:text-blue-600 py-2"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
+            <a href="#" className="block text-sm font-medium text-gray-700 hover:text-blue-600 py-2 border-b border-gray-50">
+              Contact Us
+            </a>
             <button onClick={onLoginClick} className="w-full bg-blue-600 text-white text-sm font-bold py-3 rounded-full mt-2">
               Log in
             </button>
@@ -160,25 +185,27 @@ const LandingPage = ({ onLoginClick }) => {
 
         {/* Hero Text */}
         <div className="relative z-10 h-full flex flex-col justify-center px-8 md:px-16 max-w-7xl mx-auto">
-          <span className="text-blue-300 text-sm font-bold uppercase tracking-widest mb-3">Welcome to</span>
-          <h1 className="text-4xl md:text-6xl font-black text-white leading-tight drop-shadow-lg max-w-2xl">
-            Subhan Care<br />
-            <span className="text-blue-300">Hospital</span>
+          <span className="text-blue-300 text-sm font-bold uppercase tracking-widest mb-3">
+            {language === 'UR' ? 'خوش آمدید' : 'Welcome to'}
+          </span>
+          <h1 className={`text-4xl md:text-6xl font-black text-white leading-tight drop-shadow-lg max-w-2xl ${language === 'UR' ? 'font-urdu' : ''}`}>
+            {language === 'UR' ? 'سبحان کیئر' : 'Subhan Care'}<br />
+            <span className="text-blue-300">{language === 'UR' ? 'ہسپتال' : 'Hospital'}</span>
           </h1>
-          <p className="text-white/80 text-lg mt-4 font-medium drop-shadow max-w-xl">
-            Healthcare with Compassion for All
+          <p className={`text-white/80 text-lg mt-4 font-medium drop-shadow max-w-xl ${language === 'UR' ? 'font-urdu' : ''}`}>
+            {language === 'UR' ? 'سب کے لیے ہمدردی کے ساتھ صحت کی دیکھ بھال' : 'Healthcare with Compassion for All'}
           </p>
           <div className="flex gap-3 mt-8">
             <button
               onClick={onLoginClick}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3.5 rounded-full transition-all shadow-lg flex items-center gap-2"
             >
-              Patient Portal <ArrowRight size={16} />
+              {language === 'UR' ? 'مریض کا پورٹل' : 'Patient Portal'} <ArrowRight size={16} />
             </button>
             <a href="#"
               className="bg-white/20 backdrop-blur hover:bg-white/30 text-white font-bold px-8 py-3.5 rounded-full transition-all border border-white/30"
             >
-              Find a Doctor
+              {language === 'UR' ? 'ڈاکٹر تلاش کریں' : 'Find a Doctor'}
             </a>
           </div>
         </div>

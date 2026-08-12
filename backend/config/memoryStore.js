@@ -16,6 +16,10 @@ const memoryStore = {
     { id: 'doc-3', name: 'Dr. Emily Davis',   specialty: 'Neurology',         phone: '+1 (555) 017-3849', email: 'emily.davis@subhancare.com',   availability: 'Tue, Thu, Fri (8 AM - 2 PM)',      fee: 200, rating: 4.8, consultsCount: 19 },
     { id: 'doc-4', name: 'Dr. Robert Chen',   specialty: 'General Medicine',  phone: '+1 (555) 012-4758', email: 'robert.chen@subhancare.com',   availability: 'Mon - Sat (9 AM - 1 PM)',           fee: 100, rating: 4.5, consultsCount: 52 }
   ],
+  staff: [
+    { id: 'SC-STF-10001', userId: 'u3', name: 'Reception Staff', email: 'receptionist@subhancare.com', phone: '+1 (555) 019-1111', role: 'Receptionist', department: 'Front Desk', shift: 'Morning', salary: 3500, status: 'Active', joiningDate: '2026-01-15' },
+    { id: 'SC-STF-10002', userId: 'u4', name: 'Billing Officer', email: 'billing@subhancare.com', phone: '+1 (555) 019-2222', role: 'Billing', department: 'Finance', shift: 'Morning', salary: 4000, status: 'Active', joiningDate: '2026-02-01' }
+  ],
   patients: [
     { id: 'SC-PAT-10001', name: 'Alice Johnson',  dob: '1992-03-15', gender: 'Female', cnic: '35201-1234567-1', phone: '+1 (555) 015-3829', email: 'alice.j@gmail.com',     bloodGroup: 'O+',  emergencyContact: 'Bob Johnson (+1 555-111-0001)',  address: '123 Maple St, Springfield',    allergies: 'Penicillin, Peanuts', allergySeverity: 'Critical', registeredDate: '2026-07-02' },
     { id: 'SC-PAT-10002', name: 'Bob Smith',       dob: '1981-07-22', gender: 'Male',   cnic: '35202-9876543-2', phone: '+1 (555) 011-2834', email: 'bob.smith@yahoo.com',   bloodGroup: 'A-',  emergencyContact: 'Jane Smith (+1 555-222-0002)',   address: '456 Oak Rd, Riverdale',        allergies: 'Latex, Iodine',       allergySeverity: 'Moderate', registeredDate: '2026-06-15' },

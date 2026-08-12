@@ -3,17 +3,19 @@ import { ROLE_ACCESS } from '../context/AppContext';
 import {
   LayoutDashboard, Users, Stethoscope, Calendar,
   ChevronLeft, ChevronRight, Activity, LogOut, X,
-  Receipt, BarChart3, Search, Settings, Package, ClipboardList
+  Receipt, BarChart3, Search, Settings, Package, ClipboardList, Briefcase, FlaskConical
 } from 'lucide-react';
 
 const ALL_MENU_ITEMS = [
   { id: 'dashboard',    label: 'Dashboard',          icon: LayoutDashboard },
   { id: 'patients',     label: 'Patients',            icon: Users           },
   { id: 'doctors',      label: 'Doctors',             icon: Stethoscope     },
+  { id: 'staff',        label: 'Staff & HR',          icon: Briefcase       },
   { id: 'appointments', label: 'Appointments',        icon: Calendar        },
   { id: 'billing',      label: 'Billing & Invoice',   icon: Receipt         },
   { id: 'prescriptions',label: 'Prescriptions',        icon: ClipboardList   },
   { id: 'inventory',    label: 'Inventory',           icon: Package         },
+  { id: 'lab',           label: 'Lab & Diagnostics',   icon: FlaskConical    },
   { id: 'reports',      label: 'Reports & Analytics', icon: BarChart3       },
   { id: 'search',       label: 'Advanced Search',     icon: Search          },
   { id: 'settings',     label: 'Settings',            icon: Settings        },

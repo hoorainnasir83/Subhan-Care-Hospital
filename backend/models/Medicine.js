@@ -90,6 +90,9 @@ MedicineSchema.index({
   weights: { name: 10, genericName: 8, manufacturer: 5, category: 3, batchNumber: 2 }
 });
 
+// Compound index for duplicate-batch detection (case-insensitive lookups done in application layer)
+MedicineSchema.index({ name: 1, genericName: 1, batchNumber: 1 });
+
 // Compound index for common query patterns
 MedicineSchema.index({ category: 1 });
 MedicineSchema.index({ expiryDate: 1 });

@@ -22,7 +22,7 @@ const defaultSettings = {
 
 // ─── Role-Based Access Matrix ─────────────────────────────────────────────────
 export const ROLE_ACCESS = {
-  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'reports', 'search', 'settings'],
+  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'reports', 'search', 'settings', 'staff'],
   Doctor:       ['dashboard', 'patients', 'appointments', 'prescriptions', 'inventory'],
   Patient:      ['dashboard', 'appointments', 'prescriptions'],
   Receptionist: ['dashboard', 'patients', 'doctors', 'appointments', 'inventory'],
@@ -31,12 +31,12 @@ export const ROLE_ACCESS = {
 };
 
 export const WRITE_ACCESS = {
-  Admin:        ['patients', 'doctors', 'appointments', 'billing', 'inventory'],
+  Admin:        ['patients', 'doctors', 'appointments', 'billing', 'inventory', 'staff'],
   Doctor:       [],
   Patient:      ['appointments'],
   Receptionist: ['patients', 'appointments'],
   Billing:      ['billing', 'inventory'],
-  Staff:        ['patients', 'doctors', 'appointments', 'billing', 'inventory'],
+  Staff:        ['patients', 'doctors', 'appointments', 'billing', 'inventory', 'staff'],
 };
 
 export const AppProvider = ({ children }) => {
@@ -52,6 +52,8 @@ export const AppProvider = ({ children }) => {
   const [appointments, setAppointments] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [medicines, setMedicines] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [labTests, setLabTests] = useState([]);
   const [settings, setSettings] = useState(() => {
     const s = localStorage.getItem('hms_settings');
     return s ? JSON.parse(s) : defaultSettings;
@@ -134,6 +136,29 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Fetch staff registry
+  const fetchStaff = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/staff`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setStaff(json.data);
+    } catch (err) {
+      console.error('Error fetching staff:', err);
+    }
+  };
+
+  const fetchLabTests = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/lab`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setLabTests(json.data);
+    } catch (err) {
+      /* silent */
+    }
+  };
+
   // Load all data on token change or startup
   const fetchAllData = async () => {
     if (!token) return;
@@ -143,7 +168,9 @@ export const AppProvider = ({ children }) => {
       fetchPatients(),
       fetchAppointments(),
       fetchInvoices(),
-      fetchMedicines()
+      fetchMedicines(),
+      fetchStaff(),
+      fetchLabTests()
     ]);
     setIsLoading(false);
   };
@@ -157,6 +184,8 @@ export const AppProvider = ({ children }) => {
       setAppointments([]);
       setInvoices([]);
       setMedicines([]);
+      setStaff([]);
+      setLabTests([]);
     }
   }, [token]);
 
@@ -294,6 +323,132 @@ export const AppProvider = ({ children }) => {
       }
       toast.error(json.error || 'Failed to delete doctor');
       return { success: false, error: json.error };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  // ── Staff CRUD ────────────────────────────────────────────────────────────────
+  const addStaff = async (staffData) => {
+    try {
+      const res = await fetch(`${API_URL}/staff`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(staffData)
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchStaff();
+        toast.success('Staff member added successfully!');
+        return { success: true };
+      }
+      toast.error(json.error || 'Failed to add staff');
+      return { success: false, error: json.error };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const updateStaff = async (id, staffData) => {
+    try {
+      const res = await fetch(`${API_URL}/staff/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(staffData)
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchStaff();
+        toast.success('Staff details updated!');
+        return { success: true };
+      }
+      toast.error(json.error || 'Failed to update staff');
+      return { success: false, error: json.error };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const deleteStaff = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/staff/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchStaff();
+        toast.success('Staff member removed!');
+        return { success: true };
+      }
+      toast.error(json.error || 'Failed to delete staff');
+      return { success: false, error: json.error };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  // ── Lab Tests CRUD ─────────────────────────────────────────────────────────────
+  const addLabTest = async (testData) => {
+    try {
+      const res = await fetch(`${API_URL}/lab`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(testData)
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchLabTests();
+        toast.success('Lab test created successfully!');
+        return { success: true };
+      }
+      toast.error(json.message || 'Failed to create lab test');
+      return { success: false, error: json.message };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const updateLabTest = async (id, testData) => {
+    try {
+      const res = await fetch(`${API_URL}/lab/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(testData)
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchLabTests();
+        toast.success('Lab test updated!');
+        return { success: true };
+      }
+      toast.error(json.message || 'Failed to update lab test');
+      return { success: false, error: json.message };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const deleteLabTest = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/lab/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchLabTests();
+        toast.success('Lab test deleted!');
+        return { success: true };
+      }
+      toast.error(json.message || 'Failed to delete lab test');
+      return { success: false, error: json.message };
     } catch (err) {
       toast.error('Network request failed');
       return { success: false, error: 'Network request failed' };
@@ -480,8 +635,12 @@ export const AppProvider = ({ children }) => {
       const json = await res.json();
       if (json.success) {
         await fetchMedicines();
-        toast.success('Medicine added to inventory!');
-        return { success: true, data: json.data };
+        if (json.stockMerged) {
+          toast.success(json.message || 'Existing batch found. Stock has been updated.');
+        } else {
+          toast.success('Medicine added to inventory!');
+        }
+        return { success: true, data: json.data, stockMerged: json.stockMerged, message: json.message };
       }
       toast.error(json.error || 'Failed to add medicine');
       return { success: false, error: json.error };
@@ -600,11 +759,13 @@ export const AppProvider = ({ children }) => {
       theme, toggleTheme,
       user, login, logout, canWrite, isLoading,
       doctors, addDoctor, deleteDoctor,
+      staff, fetchStaff, addStaff, updateStaff, deleteStaff,
       patients, addPatient, deletePatient,
       appointments, bookAppointment, cancelAppointment, rescheduleAppointment, getAvailableSlots,
       invoices, addInvoice, markInvoicePaid,
       notifications, clearNotifications,
       medicines, addMedicine, updateMedicine, adjustStock, deleteMedicine, fetchMedicines,
+      labTests, addLabTest, updateLabTest, deleteLabTest,
       settings, updateSettings, exportBackup, restoreBackup,
       stats,
     }}>

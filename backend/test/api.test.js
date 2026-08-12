@@ -24,6 +24,7 @@ describe('Subhan Care HMS — Integration & API Test Suite', () => {
     app.use('/api/auth', require('../routes/auth'));
     app.use('/api/patients', require('../routes/patients'));
     app.use('/api/doctors', require('../routes/doctors'));
+    app.use('/api/staff', require('../routes/staff'));
     app.use('/api/appointments', require('../routes/appointments'));
     app.use('/api/invoices', require('../routes/invoices'));
     app.use('/api/inventory', require('../routes/inventory'));
@@ -438,6 +439,58 @@ describe('Subhan Care HMS — Integration & API Test Suite', () => {
 
     test('GET /api/search?q=Alice — Full Text Search', async () => {
       const res = await request('GET', '/search?q=Alice', null, adminToken);
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+    });
+  });
+
+  // 10. STAFF ENDPOINTS
+  describe('Staff Endpoints', () => {
+    let createdStaffId;
+
+    test('GET /api/staff — Admin can list staff', async () => {
+      const res = await request('GET', '/staff', null, adminToken);
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.ok(Array.isArray(res.body.data));
+    });
+
+    test('POST /api/staff — Admin can create new staff member and user', async () => {
+      const newStaff = {
+        name: 'Test Receptionist',
+        email: 'test.receptionist@subhancare.com',
+        phone: '+1 (555) 999-8888',
+        role: 'Receptionist',
+        department: 'Front Desk',
+        shift: 'Evening',
+        salary: 3200,
+        password: 'Password123!'
+      };
+      const res = await request('POST', '/staff', newStaff, adminToken);
+      assert.equal(res.status, 201);
+      assert.equal(res.body.success, true);
+      assert.ok(res.body.data.id);
+      assert.equal(res.body.data.name, 'Test Receptionist');
+      createdStaffId = res.body.data.id;
+    });
+
+    test('PUT /api/staff/:id — Admin can update staff member', async () => {
+      if (!createdStaffId) return;
+      const updateData = {
+        name: 'Test Receptionist Updated',
+        department: 'Information Desk',
+        salary: 3600
+      };
+      const res = await request('PUT', `/staff/${createdStaffId}`, updateData, adminToken);
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(res.body.data.name, 'Test Receptionist Updated');
+      assert.equal(res.body.data.department, 'Information Desk');
+    });
+
+    test('DELETE /api/staff/:id — Admin can delete staff member and associated user', async () => {
+      if (!createdStaffId) return;
+      const res = await request('DELETE', `/staff/${createdStaffId}`, null, adminToken);
       assert.equal(res.status, 200);
       assert.equal(res.body.success, true);
     });

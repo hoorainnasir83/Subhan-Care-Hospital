@@ -14,9 +14,20 @@ import SettingsPage from './pages/SettingsPage';
 import Inventory from './pages/Inventory';
 import Prescriptions from './pages/Prescriptions';
 import LandingPage from './pages/LandingPage';
+import HealthLibrary from './pages/HealthLibrary';
+import Staff from './pages/Staff';
+import Lab from './pages/Lab';
 import NotFound from './pages/NotFound';
 import ErrorPage from './pages/ErrorPage';
 import ErrorBoundary from './components/ErrorBoundary';
+
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const { user } = useContext(AppContext);
+  if (!allowedRoles.includes(user?.role)) {
+    return <ErrorPage code={403} message="Unauthorized access" />;
+  }
+  return children;
+};
 
 function AppContent() {
   const { user, logout, theme } = useContext(AppContext);
@@ -24,6 +35,7 @@ function AppContent() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [publicView, setPublicView] = useState('home'); // 'home' | 'health-library'
 
   // If user not authenticated
   if (!user) {
@@ -34,9 +46,21 @@ function AppContent() {
         </ErrorBoundary>
       );
     }
+    
+    if (publicView === 'health-library') {
+      return (
+        <ErrorBoundary>
+          <HealthLibrary onBack={() => setPublicView('home')} />
+        </ErrorBoundary>
+      );
+    }
+
     return (
       <ErrorBoundary>
-        <LandingPage onLoginClick={() => setShowLogin(true)} />
+        <LandingPage 
+          onLoginClick={() => setShowLogin(true)} 
+          onNavigate={setPublicView}
+        />
       </ErrorBoundary>
     );
   }
@@ -78,6 +102,18 @@ function AppContent() {
         return <AdvancedSearch />;
       case 'settings':
         return <SettingsPage />;
+      case 'staff':
+        return (
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <Staff />
+          </ProtectedRoute>
+        );
+      case 'lab':
+        return (
+          <ProtectedRoute allowedRoles={['Admin', 'Doctor', 'Staff']}>
+            <Lab />
+          </ProtectedRoute>
+        );
       default:
         return <NotFound onGoHome={() => setActiveTab('dashboard')} />;
     }

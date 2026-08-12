@@ -135,34 +135,99 @@ router.post('/', protect, authorize('Admin', 'Staff'), medicineValidation, async
       lowStockThreshold, unit, location, description
     } = req.body;
 
-    const medId = `MED-${Math.floor(1000 + Math.random() * 9000)}`;
+    const addedQty = Number(stockQuantity) || 0;
+    const trimmedName = (name || '').trim();
+    const trimmedGeneric = (genericName || '').trim();
+    const trimmedBatch = (batchNumber || '').trim();
 
     if (mongoose.connection.readyState === 1) {
+      // Check for existing medicine with same name + genericName + batchNumber
+      let existing = null;
+      if (trimmedBatch) {
+        existing = await Medicine.findOne({
+          name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          genericName: { $regex: new RegExp(`^${trimmedGeneric.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          batchNumber: { $regex: new RegExp(`^${trimmedBatch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        });
+      }
+
+      if (existing) {
+        // Same batch exists — merge stock
+        const previousQty = existing.stockQuantity;
+        existing.stockQuantity = previousQty + addedQty;
+        await existing.save();
+        clearCachePattern('/api/inventory*');
+        logger.info('Medicine stock merged (same batch)', {
+          id: existing.id, name: trimmedName, batch: trimmedBatch,
+          previousQty, addedQty, newQty: existing.stockQuantity,
+          userId: req.user._id || req.user.id
+        });
+        return res.status(200).json({
+          success: true,
+          data: existing,
+          stockMerged: true,
+          previousQuantity: previousQty,
+          addedQuantity: addedQty,
+          message: `Existing batch found. Stock has been increased from ${previousQty} to ${existing.stockQuantity}.`
+        });
+      }
+
+      // No duplicate — create new record
+      const medId = `MED-${Math.floor(1000 + Math.random() * 9000)}`;
       const medicine = await Medicine.create({
-        id: medId, name, genericName, category, manufacturer,
-        batchNumber, expiryDate, purchasePrice: Number(purchasePrice),
-        sellingPrice: Number(sellingPrice), stockQuantity: Number(stockQuantity) || 0,
+        id: medId, name: trimmedName, genericName: trimmedGeneric, category, manufacturer,
+        batchNumber: trimmedBatch, expiryDate, purchasePrice: Number(purchasePrice),
+        sellingPrice: Number(sellingPrice), stockQuantity: addedQty,
         lowStockThreshold: Number(lowStockThreshold) || 10,
         unit, location, description
       });
       clearCachePattern('/api/inventory*');
-      logger.info('Medicine added', { id: medId, name, userId: req.user._id || req.user.id });
+      logger.info('Medicine added', { id: medId, name: trimmedName, userId: req.user._id || req.user.id });
       return res.status(201).json({ success: true, data: medicine });
     }
 
+    // ── Memory store fallback ─────────────────────────────────────────────────
+    const meds = getMemMedicines();
+    let existingMem = null;
+    if (trimmedBatch) {
+      existingMem = meds.find(m =>
+        m.name.toLowerCase() === trimmedName.toLowerCase() &&
+        (m.genericName || '').toLowerCase() === trimmedGeneric.toLowerCase() &&
+        (m.batchNumber || '').toLowerCase() === trimmedBatch.toLowerCase()
+      );
+    }
+
+    if (existingMem) {
+      const previousQty = existingMem.stockQuantity;
+      existingMem.stockQuantity = previousQty + addedQty;
+      clearCachePattern('/api/inventory*');
+      logger.info('Medicine stock merged in memory store (same batch)', {
+        id: existingMem.id, name: trimmedName, previousQty, addedQty, newQty: existingMem.stockQuantity
+      });
+      return res.status(200).json({
+        success: true,
+        data: existingMem,
+        stockMerged: true,
+        previousQuantity: previousQty,
+        addedQuantity: addedQty,
+        message: `Existing batch found. Stock has been increased from ${previousQty} to ${existingMem.stockQuantity}.`
+      });
+    }
+
+    const medId = `MED-${Math.floor(1000 + Math.random() * 9000)}`;
     const newMed = {
-      id: medId, name, genericName: genericName || '', category,
-      manufacturer: manufacturer || '', batchNumber: batchNumber || '',
+      id: medId, name: trimmedName, genericName: trimmedGeneric, category,
+      manufacturer: manufacturer || '', batchNumber: trimmedBatch,
       expiryDate, purchasePrice: Number(purchasePrice),
-      sellingPrice: Number(sellingPrice), stockQuantity: Number(stockQuantity) || 0,
+      sellingPrice: Number(sellingPrice), stockQuantity: addedQty,
       lowStockThreshold: Number(lowStockThreshold) || 10,
       unit: unit || 'Tablets', location: location || '', description: description || '',
       createdAt: new Date().toISOString()
     };
 
-    getMemMedicines().unshift(newMed);
+    meds.unshift(newMed);
     clearCachePattern('/api/inventory*');
-    logger.info('Medicine added to memory store', { id: medId, name });
+    logger.info('Medicine added to memory store', { id: medId, name: trimmedName });
     res.status(201).json({ success: true, data: newMed });
   } catch (error) {
     logger.error('Error adding medicine', { error: error.message });
