@@ -7,6 +7,14 @@ import {
 
 const CATEGORIES = ['Blood', 'Urine', 'Radiology', 'Pathology', 'Other'];
 
+const LAB_DOCTORS = [
+  { id: 'LAB-DOC-001', name: 'Dr. Amina Khalid', specialty: 'Pathology' },
+  { id: 'LAB-DOC-002', name: 'Dr. Usman Tariq', specialty: 'Hematology' },
+  { id: 'LAB-DOC-003', name: 'Dr. Sana Riaz', specialty: 'Microbiology' },
+  { id: 'LAB-DOC-004', name: 'Dr. Fahad Hussain', specialty: 'Radiology' },
+  { id: 'LAB-DOC-005', name: 'Dr. Nadia Shaheen', specialty: 'Biochemistry' },
+];
+
 const Lab = () => {
   const {
     labTests, addLabTest, updateLabTest, deleteLabTest,
@@ -55,7 +63,7 @@ const Lab = () => {
   };
 
   const handleDoctorSelect = (e) => {
-    const d = doctors.find(d => d.id === e.target.value);
+    const d = LAB_DOCTORS.find(d => d.id === e.target.value);
     if (d) setFormData(prev => ({ ...prev, doctorId: d.id, doctorName: d.name }));
   };
 
@@ -216,8 +224,8 @@ const Lab = () => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Doctor</label>
                 <select required value={formData.doctorId} onChange={handleDoctorSelect}
                   className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-purple-500 dark:text-white">
-                  <option value="">Select Doctor</option>
-                  {doctors.map(d => <option key={d.id} value={d.id}>{d.name} — {d.specialty}</option>)}
+                  <option value="">Select Lab Doctor</option>
+                  {LAB_DOCTORS.map(d => <option key={d.id} value={d.id}>{d.name} — {d.specialty}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

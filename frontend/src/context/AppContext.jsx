@@ -22,21 +22,21 @@ const defaultSettings = {
 
 // ─── Role-Based Access Matrix ─────────────────────────────────────────────────
 export const ROLE_ACCESS = {
-  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'reports', 'search', 'settings', 'staff'],
-  Doctor:       ['dashboard', 'patients', 'appointments', 'prescriptions', 'inventory'],
+  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'reports', 'search', 'settings', 'staff'],
+  Doctor:       ['dashboard', 'patients', 'appointments', 'prescriptions', 'inventory', 'lab'],
   Patient:      ['dashboard', 'appointments', 'prescriptions'],
   Receptionist: ['dashboard', 'patients', 'doctors', 'appointments', 'inventory'],
   Billing:      ['dashboard', 'patients', 'billing', 'prescriptions', 'inventory', 'reports'],
-  Staff:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'reports', 'search'],
+  Staff:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'reports', 'search'],
 };
 
 export const WRITE_ACCESS = {
-  Admin:        ['patients', 'doctors', 'appointments', 'billing', 'inventory', 'staff'],
-  Doctor:       [],
+  Admin:        ['patients', 'doctors', 'appointments', 'billing', 'inventory', 'staff', 'lab'],
+  Doctor:       ['lab'],
   Patient:      ['appointments'],
   Receptionist: ['patients', 'appointments'],
   Billing:      ['billing', 'inventory'],
-  Staff:        ['patients', 'doctors', 'appointments', 'billing', 'inventory', 'staff'],
+  Staff:        ['patients', 'doctors', 'appointments', 'billing', 'inventory', 'staff', 'lab'],
 };
 
 export const AppProvider = ({ children }) => {
