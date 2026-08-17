@@ -145,6 +145,31 @@ const memoryStore = {
   ]
 };
 
-global.memoryStore = memoryStore;
+const fs = require('fs');
+const path = require('path');
+const dbFilePath = path.join(__dirname, 'db.json');
 
-module.exports = memoryStore;
+// Load from file if exists
+try {
+  if (fs.existsSync(dbFilePath)) {
+    const fileData = fs.readFileSync(dbFilePath, 'utf8');
+    const parsedData = JSON.parse(fileData);
+    global.memoryStore = { ...memoryStore, ...parsedData };
+  } else {
+    global.memoryStore = memoryStore;
+  }
+} catch (err) {
+  console.error('Error loading memory store from disk:', err.message);
+  global.memoryStore = memoryStore;
+}
+
+// Save to disk every 5 seconds
+setInterval(() => {
+  try {
+    fs.writeFileSync(dbFilePath, JSON.stringify(global.memoryStore, null, 2));
+  } catch (err) {
+    console.error('Error saving memory store to disk:', err.message);
+  }
+}, 5000);
+
+module.exports = global.memoryStore;

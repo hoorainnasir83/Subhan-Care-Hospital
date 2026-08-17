@@ -2,364 +2,183 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const MedicalRecord = require('../models/MedicalRecord');
-const Patient = require('../models/Patient');
-const Doctor = require('../models/Doctor');
-const logger = require('../config/logger');
 const { protect, authorize } = require('../middleware/auth');
-const { sanitizeQueryParams } = require('../middleware/sanitization');
-const { cacheMiddleware, clearCachePattern } = require('../config/cache');
+const logger = require('../config/logger');
 
-// Helper: Init memory store array if missing
-const getMemRecords = () => {
-  if (!global.memoryStore.medicalRecords) global.memoryStore.medicalRecords = [];
-  return global.memoryStore.medicalRecords;
-};
+// Initialize memory store for medical records if it doesn't exist
+if (!global.memoryStore) global.memoryStore = {};
+if (!global.memoryStore.medicalRecords) global.memoryStore.medicalRecords = [];
 
-/**
- * @desc    Create new Medical Record
- * @route   POST /api/medical-records
- * @access  Private (Admin, Doctor, Staff)
- */
-router.post('/', protect, authorize('Admin', 'Doctor', 'Staff'), async (req, res) => {
+// Helper to check DB connection
+const isDbConnected = () => mongoose.connection.readyState === 1;
+
+// @route   GET /api/medical-records
+// @desc    Get all medical records
+// @access  Private (Admin, Doctor, Staff)
+router.get('/', protect, authorize('Admin', 'Doctor', 'Staff'), async (req, res) => {
+  try {
+    if (isDbConnected()) {
+      const records = await MedicalRecord.find().sort({ visitDate: -1 });
+      return res.json({ success: true, count: records.length, data: records });
+    } else {
+      const records = global.memoryStore.medicalRecords.sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate));
+      return res.json({ success: true, count: records.length, data: records, fallback: true });
+    }
+  } catch (error) {
+    logger.error(`Error fetching medical records: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+});
+
+// @route   GET /api/medical-records/patient/:patientId
+// @desc    Get records for a specific patient
+// @access  Private (Admin, Doctor, Staff, Patient)
+router.get('/patient/:patientId', protect, async (req, res) => {
+  try {
+    // Basic RBAC: If patient, they can only view their own records
+    if (req.user.role === 'Patient' && req.user.patientId !== req.params.patientId) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view these records' });
+    }
+
+    if (isDbConnected()) {
+      const records = await MedicalRecord.find({ patientId: req.params.patientId }).sort({ visitDate: -1 });
+      return res.json({ success: true, count: records.length, data: records });
+    } else {
+      const records = global.memoryStore.medicalRecords
+        .filter(r => r.patientId === req.params.patientId)
+        .sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate));
+      return res.json({ success: true, count: records.length, data: records, fallback: true });
+    }
+  } catch (error) {
+    logger.error(`Error fetching patient medical records: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+});
+
+// @route   POST /api/medical-records
+// @desc    Create a new medical record
+// @access  Private (Admin, Doctor)
+router.post('/', protect, authorize('Admin', 'Doctor'), async (req, res) => {
   try {
     const { 
-      patientId, recordType, recordDate, title, description, 
-      findings, recommendations, severity, status, tags, 
-      appointmentId, followUpDate, isConfidential, notes, attachments 
+      patientId, patientName, doctorId, doctorName, appointmentId, 
+      visitDate, chiefComplaint, symptoms, diagnosis, treatment, 
+      medications, labResults, vitalSigns, allergies, notes, 
+      followUpDate, recordType 
     } = req.body;
-
-    // Validation
-    if (!patientId || !recordType || !title || !description) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required fields: patientId, recordType, title, description' 
-      });
-    }
-
-    const doctorId = req.user.doctorId || req.user.id || 'doc-1';
-    const recDate = recordDate || new Date().toISOString().split('T')[0];
-
-    // Duplicate prevention: check if identical record created today for same patient
-    if (mongoose.connection.readyState === 1) {
-      const existing = await MedicalRecord.findOne({
-        patientId,
-        doctorId,
-        recordType,
-        title: title.trim(),
-        recordDate: recDate
-      });
-
-      if (existing) {
-        return res.status(409).json({ 
-          success: false, 
-          error: 'A medical record with identical title and type was already created for this patient today.' 
-        });
+    // Prevent Duplicate Records
+    // Check if the same patient has the same diagnosis by the same doctor on the same day
+    const checkDate = new Date(visitDate || new Date()).toISOString().split('T')[0];
+    
+    if (isDbConnected()) {
+      const existing = await MedicalRecord.find({ patientId, doctorId, diagnosis });
+      const isDuplicate = existing.some(r => new Date(r.visitDate).toISOString().split('T')[0] === checkDate);
+      if (isDuplicate) {
+        return res.status(400).json({ success: false, message: 'A record with this diagnosis already exists for this patient today.' });
       }
-
-      const recordId = `MR-${Math.floor(1000 + Math.random() * 9000)}`;
-
-      const newRecord = await MedicalRecord.create({
-        recordId,
-        patientId,
-        doctorId,
-        appointmentId: appointmentId || null,
-        recordType,
-        recordDate: recDate,
-        title: title.trim(),
-        description: description.trim(),
-        findings: findings || '',
-        recommendations: recommendations || '',
-        severity: severity || 'Medium',
-        status: status || 'Active',
-        tags: Array.isArray(tags) ? tags : [],
-        isConfidential: Boolean(isConfidential),
-        followUpDate: followUpDate || null,
-        notes: notes || '',
-        attachments: Array.isArray(attachments) ? attachments : [],
-        createdBy: req.user.id
-      });
-
-      clearCachePattern('/api/medical-records*');
-      logger.info('Medical record created', { recordId, patientId, userId: req.user.id });
-      return res.status(201).json({ success: true, data: newRecord });
+    } else {
+      const isDuplicate = global.memoryStore.medicalRecords.some(r => 
+        r.patientId === patientId && 
+        r.doctorId === doctorId && 
+        r.diagnosis?.toLowerCase() === diagnosis?.toLowerCase() &&
+        new Date(r.visitDate || r.recordDate).toISOString().split('T')[0] === checkDate
+      );
+      if (isDuplicate) {
+        return res.status(400).json({ success: false, message: 'A record with this diagnosis already exists for this patient today.' });
+      }
     }
 
-    // Memory Store Fallback
-    const memRecords = getMemRecords();
-    const existingMem = memRecords.find(r => 
-      r.patientId === patientId && 
-      r.doctorId === doctorId && 
-      r.recordType === recordType && 
-      r.title === title.trim() && 
-      r.recordDate === recDate
-    );
-
-    if (existingMem) {
-      return res.status(409).json({ 
-        success: false, 
-        error: 'A medical record with identical title and type was already created for this patient today.' 
-      });
-    }
-
-    const recordId = `MR-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newRecordMem = {
-      _id: `mr-${Date.now()}`,
+    // Generate a unique ID: SC-MR-XXXXX
+    const recordId = `SC-MR-${Math.floor(10000 + Math.random() * 90000)}`;
+    
+    const recordData = {
       recordId,
       patientId,
+      patientName,
       doctorId,
+      doctorName,
       appointmentId: appointmentId || null,
-      recordType,
-      recordDate: recDate,
-      title: title.trim(),
-      description: description.trim(),
-      findings: findings || '',
-      recommendations: recommendations || '',
-      severity: severity || 'Medium',
-      status: status || 'Active',
-      tags: Array.isArray(tags) ? tags : [],
-      isConfidential: Boolean(isConfidential),
-      followUpDate: followUpDate || null,
+      visitDate: visitDate ? new Date(visitDate) : new Date(),
+      chiefComplaint,
+      symptoms: symptoms || [],
+      diagnosis,
+      treatment: treatment || '',
+      medications: medications || [],
+      labResults: labResults || [],
+      vitalSigns: vitalSigns || {},
+      allergies: allergies || [],
       notes: notes || '',
-      attachments: Array.isArray(attachments) ? attachments : [],
-      createdBy: req.user.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      followUpDate: followUpDate ? new Date(followUpDate) : null,
+      recordType: recordType || 'Visit',
+      status: 'Active',
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
-    memRecords.unshift(newRecordMem);
-    clearCachePattern('/api/medical-records*');
-    logger.info('Medical record created in memory store', { recordId, patientId });
-    return res.status(201).json({ success: true, data: newRecordMem });
-
-  } catch (error) {
-    logger.error('Error creating medical record', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * @desc    Get all Medical Records (with filter, search & pagination)
- * @route   GET /api/medical-records
- * @access  Private (All authenticated roles)
- */
-router.get('/', protect, sanitizeQueryParams, cacheMiddleware(300), async (req, res) => {
-  try {
-    const { patientId, recordType, status, severity, search = '', page = 1, limit = 20 } = req.query;
-    const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-
-    if (mongoose.connection.readyState === 1) {
-      let query = {};
-      if (patientId) query.patientId = patientId;
-      if (recordType && recordType !== 'All') query.recordType = recordType;
-      if (status && status !== 'All') query.status = status;
-      if (severity && severity !== 'All') query.severity = severity;
-
-      if (search) {
-        const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        query.$or = [{ title: regex }, { description: regex }, { findings: regex }];
-      }
-
-      // Restrict confidential records for patients if not own record
-      if (req.user.role === 'Patient') {
-        query.patientId = req.user.patientId;
-        query.isConfidential = false;
-      }
-
-      const total = await MedicalRecord.countDocuments(query);
-      const records = await MedicalRecord.find(query)
-        .sort({ recordDate: -1, createdAt: -1 })
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum);
-
-      return res.json({ success: true, count: records.length, total, data: records });
-    }
-
-    // Memory Store Fallback
-    let memRecords = getMemRecords();
-
-    if (req.user.role === 'Patient') {
-      memRecords = memRecords.filter(r => r.patientId === req.user.patientId && !r.isConfidential);
-    } else if (patientId) {
-      memRecords = memRecords.filter(r => r.patientId === patientId);
-    }
-
-    if (recordType && recordType !== 'All') memRecords = memRecords.filter(r => r.recordType === recordType);
-    if (status && status !== 'All') memRecords = memRecords.filter(r => r.status === status);
-    if (severity && severity !== 'All') memRecords = memRecords.filter(r => r.severity === severity);
-
-    if (search) {
-      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      memRecords = memRecords.filter(r => regex.test(r.title) || regex.test(r.description) || regex.test(r.findings));
-    }
-
-    const total = memRecords.length;
-    const paginated = memRecords.slice((pageNum - 1) * limitNum, pageNum * limitNum);
-    res.json({ success: true, count: paginated.length, total, data: paginated });
-
-  } catch (error) {
-    logger.error('Error fetching medical records', { error: error.message });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * @desc    Get Patient Timeline
- * @route   GET /api/medical-records/patient/:patientId/timeline
- * @access  Private
- */
-router.get('/patient/:patientId/timeline', protect, cacheMiddleware(300), async (req, res) => {
-  try {
-    const { patientId } = req.params;
-
-    if (mongoose.connection.readyState === 1) {
-      const records = await MedicalRecord.find({ patientId })
-        .sort({ recordDate: -1, createdAt: -1 });
-      return res.json({ success: true, count: records.length, data: records });
-    }
-
-    const records = getMemRecords()
-      .filter(r => r.patientId === patientId)
-      .sort((a, b) => new Date(b.recordDate) - new Date(a.recordDate));
-
-    res.json({ success: true, count: records.length, data: records });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * @desc    Get Patient Medical Summary
- * @route   GET /api/medical-records/patient/:patientId/summary
- * @access  Private
- */
-router.get('/patient/:patientId/summary', protect, cacheMiddleware(300), async (req, res) => {
-  try {
-    const { patientId } = req.params;
-
-    let records = [];
-    if (mongoose.connection.readyState === 1) {
-      records = await MedicalRecord.find({ patientId });
+    if (isDbConnected()) {
+      const newRecord = await MedicalRecord.create(recordData);
+      logger.info(`Medical record created in MongoDB: ${recordId}`);
+      return res.status(201).json({ success: true, data: newRecord });
     } else {
-      records = getMemRecords().filter(r => r.patientId === patientId);
+      global.memoryStore.medicalRecords.push(recordData);
+      logger.info(`Medical record created in Memory Store: ${recordId}`);
+      return res.status(201).json({ success: true, data: recordData, fallback: true });
     }
-
-    const activeConditions = records.filter(r => r.status === 'Active').length;
-    const surgeries = records.filter(r => r.recordType === 'Surgery').length;
-    const followUpsNeeded = records.filter(r => r.status === 'Follow-up Needed').length;
-
-    const severityBreakdown = {
-      low: records.filter(r => r.severity === 'Low').length,
-      medium: records.filter(r => r.severity === 'Medium').length,
-      high: records.filter(r => r.severity === 'High').length,
-      critical: records.filter(r => r.severity === 'Critical').length
-    };
-
-    const summary = {
-      patientId,
-      totalRecords: records.length,
-      activeConditions,
-      surgeries,
-      followUpsNeeded,
-      severityBreakdown,
-      recentRecords: records.slice(0, 5)
-    };
-
-    res.json({ success: true, data: summary });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    logger.error(`Error creating medical record: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 
-/**
- * @desc    Get single Medical Record by ID
- * @route   GET /api/medical-records/:id
- * @access  Private
- */
-router.get('/:id', protect, async (req, res) => {
+// @route   PUT /api/medical-records/:id
+// @desc    Update medical record
+// @access  Private (Admin, Doctor)
+router.put('/:id', protect, authorize('Admin', 'Doctor'), async (req, res) => {
   try {
-    const { id } = req.params;
-
-    if (mongoose.connection.readyState === 1) {
-      const record = await MedicalRecord.findOne({ $or: [{ _id: id }, { recordId: id }] });
-      if (!record) return res.status(404).json({ success: false, error: 'Record not found' });
+    if (isDbConnected()) {
+      let record = await MedicalRecord.findOne({ recordId: req.params.id });
+      if (!record) return res.status(404).json({ success: false, message: 'Medical record not found' });
+      
+      record = await MedicalRecord.findOneAndUpdate({ recordId: req.params.id }, req.body, { new: true, runValidators: true });
+      logger.info(`Medical record updated in MongoDB: ${req.params.id}`);
       return res.json({ success: true, data: record });
+    } else {
+      const index = global.memoryStore.medicalRecords.findIndex(r => r.recordId === req.params.id);
+      if (index === -1) return res.status(404).json({ success: false, message: 'Medical record not found' });
+      
+      global.memoryStore.medicalRecords[index] = { ...global.memoryStore.medicalRecords[index], ...req.body, updatedAt: new Date() };
+      logger.info(`Medical record updated in Memory Store: ${req.params.id}`);
+      return res.json({ success: true, data: global.memoryStore.medicalRecords[index], fallback: true });
     }
-
-    const record = getMemRecords().find(r => r._id === id || r.recordId === id);
-    if (!record) return res.status(404).json({ success: false, error: 'Record not found' });
-    res.json({ success: true, data: record });
-
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    logger.error(`Error updating medical record: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 
-/**
- * @desc    Update Medical Record
- * @route   PUT /api/medical-records/:id
- * @access  Private (Admin, Doctor, Staff)
- */
-router.put('/:id', protect, authorize('Admin', 'Doctor', 'Staff'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    if (mongoose.connection.readyState === 1) {
-      const record = await MedicalRecord.findOne({ $or: [{ _id: id }, { recordId: id }] });
-      if (!record) return res.status(404).json({ success: false, error: 'Record not found' });
-
-      Object.assign(record, updates);
-      await record.save();
-      clearCachePattern('/api/medical-records*');
-      logger.info('Medical record updated', { id, userId: req.user.id });
-      return res.json({ success: true, data: record });
-    }
-
-    const memRecords = getMemRecords();
-    const idx = memRecords.findIndex(r => r._id === id || r.recordId === id);
-    if (idx === -1) return res.status(404).json({ success: false, error: 'Record not found' });
-
-    memRecords[idx] = { ...memRecords[idx], ...updates, updatedAt: new Date().toISOString() };
-    clearCachePattern('/api/medical-records*');
-    logger.info('Medical record updated in memory store', { id });
-    res.json({ success: true, data: memRecords[idx] });
-
-  } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * @desc    Delete Medical Record
- * @route   DELETE /api/medical-records/:id
- * @access  Private (Admin only)
- */
+// @route   DELETE /api/medical-records/:id
+// @desc    Delete medical record
+// @access  Private (Admin)
 router.delete('/:id', protect, authorize('Admin'), async (req, res) => {
   try {
-    const { id } = req.params;
-
-    if (mongoose.connection.readyState === 1) {
-      const record = await MedicalRecord.findOne({ $or: [{ _id: id }, { recordId: id }] });
-      if (!record) return res.status(404).json({ success: false, error: 'Record not found' });
-
-      await MedicalRecord.deleteOne({ _id: record._id });
-      clearCachePattern('/api/medical-records*');
-      logger.info('Medical record deleted', { id, userId: req.user.id });
-      return res.json({ success: true, message: 'Medical record deleted successfully' });
+    if (isDbConnected()) {
+      const record = await MedicalRecord.findOne({ recordId: req.params.id });
+      if (!record) return res.status(404).json({ success: false, message: 'Medical record not found' });
+      
+      await record.remove();
+      logger.info(`Medical record deleted from MongoDB: ${req.params.id}`);
+      return res.json({ success: true, data: {} });
+    } else {
+      const index = global.memoryStore.medicalRecords.findIndex(r => r.recordId === req.params.id);
+      if (index === -1) return res.status(404).json({ success: false, message: 'Medical record not found' });
+      
+      global.memoryStore.medicalRecords.splice(index, 1);
+      logger.info(`Medical record deleted from Memory Store: ${req.params.id}`);
+      return res.json({ success: true, data: {}, fallback: true });
     }
-
-    const memRecords = getMemRecords();
-    const idx = memRecords.findIndex(r => r._id === id || r.recordId === id);
-    if (idx === -1) return res.status(404).json({ success: false, error: 'Record not found' });
-
-    memRecords.splice(idx, 1);
-    clearCachePattern('/api/medical-records*');
-    logger.info('Medical record deleted from memory store', { id });
-    res.json({ success: true, message: 'Medical record deleted successfully' });
-
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    logger.error(`Error deleting medical record: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 

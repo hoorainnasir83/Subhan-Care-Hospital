@@ -17,6 +17,7 @@ import LandingPage from './pages/LandingPage';
 import HealthLibrary from './pages/HealthLibrary';
 import Staff from './pages/Staff';
 import Lab from './pages/Lab';
+import MedicalRecords from './pages/MedicalRecords';
 import NotFound from './pages/NotFound';
 import ErrorPage from './pages/ErrorPage';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -112,6 +113,12 @@ function AppContent() {
         return (
           <ProtectedRoute allowedRoles={['Admin', 'Doctor', 'Staff']}>
             <Lab />
+          </ProtectedRoute>
+        );
+      case 'medical-records':
+        return (
+          <ProtectedRoute allowedRoles={['Admin', 'Doctor', 'Staff', 'Patient']}>
+            <MedicalRecords />
           </ProtectedRoute>
         );
       default:

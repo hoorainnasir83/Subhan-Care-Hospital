@@ -14,6 +14,7 @@ const ALL_MENU_ITEMS = [
   { id: 'appointments', label: 'Appointments',        icon: Calendar        },
   { id: 'billing',      label: 'Billing & Invoice',   icon: Receipt         },
   { id: 'prescriptions',label: 'Prescriptions',        icon: ClipboardList   },
+  { id: 'medical-records',label: 'Medical Records',      icon: Activity        },
   { id: 'inventory',    label: 'Inventory',           icon: Package         },
   { id: 'lab',           label: 'Lab & Diagnostics',   icon: FlaskConical    },
   { id: 'reports',      label: 'Reports & Analytics', icon: BarChart3       },

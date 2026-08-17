@@ -1,131 +1,101 @@
 const mongoose = require('mongoose');
 
+const VitalSignsSchema = new mongoose.Schema({
+  bloodPressure: { type: String, default: '' },
+  temperature: { type: String, default: '' },
+  pulse: { type: String, default: '' },
+  weight: { type: String, default: '' },
+  height: { type: String, default: '' },
+  oxygenSaturation: { type: String, default: '' }
+}, { _id: false });
+
 const MedicalRecordSchema = new mongoose.Schema({
-  recordId: {
-    type: String,
-    required: true,
-    unique: true
+  recordId: { 
+    type: String, 
+    required: true, 
+    unique: true 
   },
-  patientId: {
-    type: String,
-    required: [true, 'Please add patient ID']
+  patientId: { 
+    type: String, 
+    required: true 
   },
-  doctorId: {
+  patientName: { 
+    type: String, 
+    required: true 
+  },
+  doctorId: { 
+    type: String, 
+    required: true 
+  },
+  doctorName: {
     type: String,
-    required: [true, 'Please add doctor ID']
+    required: true
   },
   appointmentId: {
     type: String,
     default: null
   },
-  recordType: {
-    type: String,
-    required: [true, 'Please select record type'],
-    enum: ['Diagnosis', 'Lab Test', 'Scan', 'Procedure', 'Allergy', 'Medication History', 'Vaccination', 'Surgery', 'Other'],
-    default: 'Other'
+  visitDate: { 
+    type: Date, 
+    required: true 
   },
-  recordDate: {
-    type: String,
-    required: [true, 'Please add record date']
+  chiefComplaint: { 
+    type: String, 
+    required: true 
   },
-  title: {
-    type: String,
-    required: [true, 'Please add record title'],
-    minlength: [3, 'Title must be at least 3 characters'],
-    maxlength: [200, 'Title cannot exceed 200 characters']
+  symptoms: {
+    type: [String],
+    default: []
   },
-  description: {
-    type: String,
-    required: [true, 'Please add description'],
-    minlength: [5, 'Description must be at least 5 characters'],
-    maxlength: [2000, 'Description cannot exceed 2000 characters']
+  diagnosis: { 
+    type: String, 
+    required: true 
   },
-  findings: {
-    type: String,
-    default: '',
-    maxlength: [3000, 'Findings cannot exceed 3000 characters']
+  treatment: { 
+    type: String, 
+    default: '' 
   },
-  recommendations: {
-    type: String,
-    default: '',
-    maxlength: [2000, 'Recommendations cannot exceed 2000 characters']
+  medications: {
+    type: [String],
+    default: []
   },
-  severity: {
-    type: String,
-    required: [true, 'Please select severity level'],
-    enum: ['Low', 'Medium', 'High', 'Critical'],
-    default: 'Medium'
+  labResults: {
+    type: [String],
+    default: []
   },
-  status: {
-    type: String,
-    required: true,
-    enum: ['Active', 'Resolved', 'Archived', 'Follow-up Needed'],
-    default: 'Active'
+  vitalSigns: {
+    type: VitalSignsSchema,
+    default: () => ({})
   },
-  tags: [{
-    type: String,
-    minlength: [2, 'Tag must be at least 2 characters'],
-    maxlength: [50, 'Tag cannot exceed 50 characters']
-  }],
-  isConfidential: {
-    type: Boolean,
-    default: false
-  },
-  followUpDate: {
-    type: String,
-    default: null
+  allergies: {
+    type: [String],
+    default: []
   },
   notes: {
     type: String,
-    default: '',
-    maxlength: [1000, 'Notes cannot exceed 1000 characters']
+    default: ''
   },
-  attachments: [{
-    fileName: { type: String, required: true },
-    fileType: { type: String, required: true },
-    fileData: { type: String, required: true }, // Base64 data URI
-    fileSize: { type: Number, default: 0 },
-    uploadedAt: { type: Date, default: Date.now }
-  }],
-  createdBy: {
-    type: String,
-    required: true
-  },
-  createdAt: {
+  followUpDate: {
     type: Date,
-    default: Date.now
+    default: null
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  recordType: { 
+    type: String, 
+    enum: ['Visit', 'Emergency', 'Surgery', 'Checkup', 'Lab'], 
+    default: 'Visit' 
+  },
+  attachments: {
+    type: [String],
+    default: []
+  },
+  status: { 
+    type: String, 
+    enum: ['Active', 'Archived'], 
+    default: 'Active' 
   }
-});
+}, { timestamps: true });
 
-// Update timestamp on save
-MedicalRecordSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-// Full-text search index
-MedicalRecordSchema.index({
-  title: 'text',
-  description: 'text',
-  findings: 'text'
-}, {
-  name: 'medical_record_text_search',
-  weights: { 
-    title: 10, 
-    description: 5,
-    findings: 3
-  }
-});
-
-// Compound indexes for performance
-MedicalRecordSchema.index({ patientId: 1, recordDate: -1 });
-MedicalRecordSchema.index({ patientId: 1, status: 1 });
-MedicalRecordSchema.index({ doctorId: 1, createdAt: -1 });
-MedicalRecordSchema.index({ recordType: 1, patientId: 1 });
-MedicalRecordSchema.index({ recordDate: -1 });
+// Text indexing for search
+MedicalRecordSchema.index({ diagnosis: 'text', symptoms: 'text', notes: 'text', chiefComplaint: 'text' });
 
 module.exports = mongoose.model('MedicalRecord', MedicalRecordSchema);

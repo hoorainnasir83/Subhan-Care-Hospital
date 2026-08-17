@@ -22,17 +22,17 @@ const defaultSettings = {
 
 // ─── Role-Based Access Matrix ─────────────────────────────────────────────────
 export const ROLE_ACCESS = {
-  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'reports', 'search', 'settings', 'staff'],
-  Doctor:       ['dashboard', 'patients', 'appointments', 'prescriptions', 'inventory', 'lab'],
-  Patient:      ['dashboard', 'appointments', 'prescriptions'],
+  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'medical-records', 'reports', 'search', 'settings', 'staff'],
+  Doctor:       ['dashboard', 'patients', 'appointments', 'prescriptions', 'inventory', 'lab', 'medical-records'],
+  Patient:      ['dashboard', 'appointments', 'prescriptions', 'medical-records'],
   Receptionist: ['dashboard', 'patients', 'doctors', 'appointments', 'inventory'],
   Billing:      ['dashboard', 'patients', 'billing', 'prescriptions', 'inventory', 'reports'],
-  Staff:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'reports', 'search'],
+  Staff:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'medical-records', 'reports', 'search'],
 };
 
 export const WRITE_ACCESS = {
-  Admin:        ['patients', 'doctors', 'appointments', 'billing', 'inventory', 'staff', 'lab'],
-  Doctor:       ['lab'],
+  Admin:        ['patients', 'doctors', 'appointments', 'billing', 'inventory', 'staff', 'lab', 'medical-records'],
+  Doctor:       ['lab', 'medical-records'],
   Patient:      ['appointments'],
   Receptionist: ['patients', 'appointments'],
   Billing:      ['billing', 'inventory'],
@@ -54,6 +54,7 @@ export const AppProvider = ({ children }) => {
   const [medicines, setMedicines] = useState([]);
   const [staff, setStaff] = useState([]);
   const [labTests, setLabTests] = useState([]);
+  const [medicalRecords, setMedicalRecords] = useState([]);
   const [settings, setSettings] = useState(() => {
     const s = localStorage.getItem('hms_settings');
     return s ? JSON.parse(s) : defaultSettings;
@@ -159,6 +160,19 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const fetchMedicalRecords = async () => {
+    if (!token) return;
+    try {
+      // If patient, fetch only their records
+      const url = user?.role === 'Patient' ? `${API_URL}/medical-records/patient/${user.patientId}` : `${API_URL}/medical-records`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success) setMedicalRecords(json.data);
+    } catch (err) {
+      /* silent */
+    }
+  };
+
   // Load all data on token change or startup
   const fetchAllData = async () => {
     if (!token) return;
@@ -170,7 +184,8 @@ export const AppProvider = ({ children }) => {
       fetchInvoices(),
       fetchMedicines(),
       fetchStaff(),
-      fetchLabTests()
+      fetchLabTests(),
+      fetchMedicalRecords()
     ]);
     setIsLoading(false);
   };
@@ -186,6 +201,7 @@ export const AppProvider = ({ children }) => {
       setMedicines([]);
       setStaff([]);
       setLabTests([]);
+      setMedicalRecords([]);
     }
   }, [token]);
 
@@ -448,6 +464,69 @@ export const AppProvider = ({ children }) => {
         return { success: true };
       }
       toast.error(json.message || 'Failed to delete lab test');
+      return { success: false, error: json.message };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  // ── Medical Records CRUD ─────────────────────────────────────────────────────────────
+  const addMedicalRecord = async (recordData) => {
+    try {
+      const res = await fetch(`${API_URL}/medical-records`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(recordData)
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchMedicalRecords();
+        toast.success('Medical record created successfully!');
+        return { success: true };
+      }
+      toast.error(json.message || 'Failed to create record');
+      return { success: false, error: json.message };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const updateMedicalRecord = async (id, recordData) => {
+    try {
+      const res = await fetch(`${API_URL}/medical-records/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(recordData)
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchMedicalRecords();
+        toast.success('Medical record updated!');
+        return { success: true };
+      }
+      toast.error(json.message || 'Failed to update record');
+      return { success: false, error: json.message };
+    } catch (err) {
+      toast.error('Network request failed');
+      return { success: false, error: 'Network request failed' };
+    }
+  };
+
+  const deleteMedicalRecord = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/medical-records/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchMedicalRecords();
+        toast.success('Medical record deleted!');
+        return { success: true };
+      }
+      toast.error(json.message || 'Failed to delete record');
       return { success: false, error: json.message };
     } catch (err) {
       toast.error('Network request failed');
@@ -766,6 +845,7 @@ export const AppProvider = ({ children }) => {
       notifications, clearNotifications,
       medicines, addMedicine, updateMedicine, adjustStock, deleteMedicine, fetchMedicines,
       labTests, addLabTest, updateLabTest, deleteLabTest,
+      medicalRecords, fetchMedicalRecords, addMedicalRecord, updateMedicalRecord, deleteMedicalRecord,
       settings, updateSettings, exportBackup, restoreBackup,
       stats,
     }}>
