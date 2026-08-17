@@ -18,6 +18,8 @@ import HealthLibrary from './pages/HealthLibrary';
 import Staff from './pages/Staff';
 import Lab from './pages/Lab';
 import MedicalRecords from './pages/MedicalRecords';
+import AuditLogs from './pages/AuditLogs';
+import FeedbackPage from './pages/FeedbackPage';
 import NotFound from './pages/NotFound';
 import ErrorPage from './pages/ErrorPage';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -119,6 +121,18 @@ function AppContent() {
         return (
           <ProtectedRoute allowedRoles={['Admin', 'Doctor', 'Staff', 'Patient']}>
             <MedicalRecords />
+          </ProtectedRoute>
+        );
+      case 'audit-logs':
+        return (
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <AuditLogs />
+          </ProtectedRoute>
+        );
+      case 'feedback':
+        return (
+          <ProtectedRoute allowedRoles={['Admin', 'Doctor', 'Patient']}>
+            <FeedbackPage />
           </ProtectedRoute>
         );
       default:

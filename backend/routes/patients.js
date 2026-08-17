@@ -258,6 +258,44 @@ router.post('/', protect, authorize('Admin', 'Receptionist', 'Staff'), patientVa
   }
 });
 
+/**
+ * @swagger
+ * /patients/{id}:
+ *   delete:
+ *     summary: Delete a patient
+ *     description: Delete a patient registry by ID. Requires Admin or Staff role.
+ *     tags:
+ *       - Patients
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The patient ID (e.g., SC-PAT-10001)
+ *     responses:
+ *       200:
+ *         description: Patient removed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Patient removed successfully
+ *       404:
+ *         description: Patient not found
+ *       401:
+ *         description: Unauthorized or insufficient permissions
+ *       500:
+ *         description: Server error
+ */
 // @desc    Delete patient
 // @route   DELETE /api/patients/:id
 // @access  Private (Admin, Staff)

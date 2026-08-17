@@ -43,7 +43,9 @@
       "passwordHash": "$2a$10$5FpgUa9WsuSaVp84aIU4f.Bcxbk87RNK2k4Nhehy4hdREBVtpVSau",
       "role": "Patient",
       "doctorId": null,
-      "patientId": "SC-PAT-10001"
+      "patientId": "SC-PAT-10001",
+      "loginOtp": "523472",
+      "loginOtpExpires": "2026-08-17T11:58:44.306Z"
     },
     {
       "id": "u6",

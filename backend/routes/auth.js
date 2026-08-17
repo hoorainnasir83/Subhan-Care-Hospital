@@ -351,6 +351,57 @@ router.get('/me', protect, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/profile:
+ *   put:
+ *     summary: Update current user profile
+ *     description: Update the profile details of the currently authenticated user.
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: John Doe
+ *               phone:
+ *                 type: string
+ *                 example: "1234567890"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: john@example.com
+ *               avatar:
+ *                 type: string
+ *                 example: "https://example.com/avatar.jpg"
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Profile updated successfully
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Update current user profile
 // @route   PUT /api/auth/profile
 // @access  Private
@@ -397,6 +448,45 @@ router.put('/profile', protect, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/profile/password:
+ *   put:
+ *     summary: Update password
+ *     description: Change the password for the currently authenticated user.
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *                 example: "OldSecurePass123"
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 6
+ *                 example: "NewSecurePass123"
+ *     responses:
+ *       200:
+ *         description: Password updated successfully
+ *       400:
+ *         description: Incorrect current password or validation error
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Update password
 // @route   PUT /api/auth/profile/password
 // @access  Private
@@ -433,6 +523,48 @@ router.put('/profile/password', protect, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/sessions:
+ *   get:
+ *     summary: Get active mock sessions
+ *     description: Retrieve active sessions for the UI (mock data).
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sessions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: "1"
+ *                       device:
+ *                         type: string
+ *                         example: "Windows PC (Chrome)"
+ *                       ip:
+ *                         type: string
+ *                         example: "192.168.1.5"
+ *                       current:
+ *                         type: boolean
+ *                         example: true
+ *                       lastActive:
+ *                         type: string
+ *                         format: date-time
+ */
 // @desc    Get active mock sessions (For UI purposes)
 // @route   GET /api/auth/sessions
 // @access  Private
@@ -837,6 +969,37 @@ router.post('/resend-code', [
   }
 });
 
+/**
+ * @swagger
+ * /auth/send-login-otp:
+ *   post:
+ *     summary: Send login OTP
+ *     description: Send a 6-digit OTP code to the user's email for login verification.
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - identifier
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 description: User's email or Patient ID
+ *                 example: "john@example.com"
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *       400:
+ *         description: Identifier missing
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Send 6-digit OTP code to user's email before password entry
 // @route   POST /api/auth/send-login-otp
 // @access  Public
@@ -901,6 +1064,39 @@ router.post('/send-login-otp', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/verify-login-otp:
+ *   post:
+ *     summary: Verify login OTP
+ *     description: Verify the 6-digit OTP code before login.
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john@example.com"
+ *               otp:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *       400:
+ *         description: Invalid or expired OTP code
+ *       500:
+ *         description: Server error
+ */
 // @desc    Verify 6-digit OTP code
 // @route   POST /api/auth/verify-login-otp
 // @access  Public

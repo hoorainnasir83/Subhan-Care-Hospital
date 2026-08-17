@@ -3,7 +3,8 @@ import { ROLE_ACCESS } from '../context/AppContext';
 import {
   LayoutDashboard, Users, Stethoscope, Calendar,
   ChevronLeft, ChevronRight, Activity, LogOut, X,
-  Receipt, BarChart3, Search, Settings, Package, ClipboardList, Briefcase, FlaskConical
+  Receipt, BarChart3, Search, Settings, Package, ClipboardList, Briefcase, FlaskConical,
+  Shield, MessageSquare
 } from 'lucide-react';
 
 const ALL_MENU_ITEMS = [
@@ -18,6 +19,8 @@ const ALL_MENU_ITEMS = [
   { id: 'inventory',    label: 'Inventory',           icon: Package         },
   { id: 'lab',           label: 'Lab & Diagnostics',   icon: FlaskConical    },
   { id: 'reports',      label: 'Reports & Analytics', icon: BarChart3       },
+  { id: 'feedback',      label: 'Feedback',            icon: MessageSquare   },
+  { id: 'audit-logs',    label: 'Audit Logs',          icon: Shield          },
   { id: 'search',       label: 'Advanced Search',     icon: Search          },
   { id: 'settings',     label: 'Settings',            icon: Settings        },
 ];

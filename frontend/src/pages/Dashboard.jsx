@@ -1,5 +1,7 @@
 import React, { useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
+import PatientDashboard from './dashboards/PatientDashboard';
+import DoctorDashboard from './dashboards/DoctorDashboard';
 import { 
   Users, 
   Stethoscope, 
@@ -225,6 +227,14 @@ const Dashboard = ({ setActiveTab }) => {
         bgColor: 'bg-emerald-50 dark:bg-emerald-950/40',
       },
     ];
+  }
+
+  if (role === 'Patient') {
+    return <PatientDashboard setActiveTab={setActiveTab} />;
+  }
+
+  if (role === 'Doctor') {
+    return <DoctorDashboard setActiveTab={setActiveTab} />;
   }
 
   return (

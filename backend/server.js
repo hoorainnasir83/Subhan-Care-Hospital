@@ -14,6 +14,9 @@ const logger = require('./config/logger');
 // Load in-memory fallback store into global scope immediately
 require('./config/memoryStore');
 
+// Initialize Cron Jobs
+require('./jobs/reminderCron');
+
 // Connect to MongoDB (will fallback to in-memory store if unavailable)
 connectDB();
 
@@ -122,7 +125,7 @@ app.get('/', (req, res) => {
 });
 
 // ✅ Swagger/OpenAPI Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
   swaggerOptions: {
     persistAuthorization: true,
     defaultModelsExpandDepth: 2,
@@ -138,21 +141,27 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/forgot-password', forgotPasswordLimiter);
 app.use('/api/auth/resend-code', forgotPasswordLimiter);
+
+// ✅ Audit Logger Middleware (tracks all mutations)
+const auditLogger = require('./middleware/auditLogger');
+
 app.use('/api/auth',         require('./routes/auth'));
-app.use('/api/patients',     require('./routes/patients'));
-app.use('/api/doctors',      require('./routes/doctors'));
-app.use('/api/staff',        require('./routes/staff'));
-app.use('/api/appointments', require('./routes/appointments'));
-app.use('/api/invoices',     require('./routes/invoices'));
-app.use('/api/payments',     require('./routes/payments'));
+app.use('/api/patients',     auditLogger('patients'), require('./routes/patients'));
+app.use('/api/doctors',      auditLogger('doctors'), require('./routes/doctors'));
+app.use('/api/staff',        auditLogger('staff'), require('./routes/staff'));
+app.use('/api/appointments', auditLogger('appointments'), require('./routes/appointments'));
+app.use('/api/invoices',     auditLogger('invoices'), require('./routes/invoices'));
+app.use('/api/payments',     auditLogger('payments'), require('./routes/payments'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/search',       require('./routes/search'));
 app.use('/api/reports',      require('./routes/reports'));
-app.use('/api/inventory',    require('./routes/inventory'));
-app.use('/api/medical-records',  require('./routes/medicalRecords'));
-app.use('/api/prescriptions',    require('./routes/prescriptions'));
-app.use('/api/lab',              require('./routes/lab'));
-app.use('/api/settings',         require('./routes/settings'));
+app.use('/api/inventory',    auditLogger('inventory'), require('./routes/inventory'));
+app.use('/api/medical-records',  auditLogger('medical-records'), require('./routes/medicalRecords'));
+app.use('/api/prescriptions',    auditLogger('prescriptions'), require('./routes/prescriptions'));
+app.use('/api/lab',              auditLogger('lab'), require('./routes/lab'));
+app.use('/api/settings',         auditLogger('settings'), require('./routes/settings'));
+app.use('/api/audit-logs',       require('./routes/auditLogs'));
+app.use('/api/feedback',         auditLogger('feedback'), require('./routes/feedback'));
 app.use('/api/system',           (req, res, next) => { req.url = '/system' + (req.url === '/' ? '' : req.url); next(); }, require('./routes/settings'));
 app.use('/api/security',         (req, res, next) => { req.url = '/security' + (req.url === '/' ? '' : req.url); next(); }, require('./routes/settings'));
 
@@ -182,8 +191,12 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
-server.listen(PORT, () => {
-  logger.info(`✅ Server running on port ${PORT}`);
-  logger.info(`🛡️  Rate limiting enabled`);
-  logger.info(`📋 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, () => {
+    logger.info(`✅ Server running on port ${PORT}`);
+    logger.info(`🛡️  Rate limiting enabled`);
+    logger.info(`📋 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+}
+
+module.exports = app;
