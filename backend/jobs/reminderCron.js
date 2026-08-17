@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const Appointment = require('../models/Appointment');
 const Patient = require('../models/Patient');
 const { sendSms, getTwilioConfig } = require('../config/twilioService');
-const { isDbConnected } = require('../config/db');
+const mongoose = require('mongoose');
 const logger = require('../config/logger');
 
 // Run every day at 8:00 AM
@@ -15,7 +15,7 @@ cron.schedule('0 8 * * *', async () => {
 
     let appointments = [];
 
-    if (isDbConnected()) {
+    if (mongoose.connection.readyState === 1) {
       appointments = await Appointment.find({ date: tomorrowStr, status: 'Scheduled' });
     } else {
       appointments = (global.memoryStore.appointments || []).filter(
@@ -35,7 +35,7 @@ cron.schedule('0 8 * * *', async () => {
 
     for (const appt of appointments) {
       let patient;
-      if (isDbConnected()) {
+      if (mongoose.connection.readyState === 1) {
         patient = await Patient.findOne({ id: appt.patientId });
       } else {
         patient = (global.memoryStore.patients || []).find(p => p.id === appt.patientId);

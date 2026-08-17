@@ -24,7 +24,7 @@ router.post('/sms', protect, authorize('Admin', 'Billing', 'Staff'), async (req,
 });
 
 const Notification = require('../models/Notification');
-const { isDbConnected } = require('../config/db');
+const mongoose = require('mongoose');
 
 // @route   GET /api/notifications
 // @desc    Get notifications for current user
@@ -32,7 +32,7 @@ const { isDbConnected } = require('../config/db');
 router.get('/', protect, async (req, res) => {
   try {
     let notifications = [];
-    if (isDbConnected()) {
+    if (mongoose.connection.readyState === 1) {
       notifications = await Notification.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(50);
     } else {
       global.memoryStore.notifications = global.memoryStore.notifications || [];
@@ -53,7 +53,7 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.put('/:id/read', protect, async (req, res) => {
   try {
-    if (isDbConnected()) {
+    if (mongoose.connection.readyState === 1) {
       const notification = await Notification.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.id },
         { read: true },
@@ -83,7 +83,7 @@ router.post('/', protect, authorize('Admin'), async (req, res) => {
     const { userId, title, message, type } = req.body;
     let newNotif;
     
-    if (isDbConnected()) {
+    if (mongoose.connection.readyState === 1) {
       newNotif = await Notification.create({ userId, title, message, type });
     } else {
       global.memoryStore.notifications = global.memoryStore.notifications || [];

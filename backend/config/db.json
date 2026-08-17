@@ -7,7 +7,9 @@
       "passwordHash": "$2a$10$9lC7Vb.A0NNmTx27o5M9IOyvB2bETjhWUwKGcTT0rwXMMljEoTB7G",
       "role": "Admin",
       "doctorId": null,
-      "patientId": null
+      "patientId": null,
+      "loginOtp": "267440",
+      "loginOtpExpires": "2026-08-17T12:31:33.283Z"
     },
     {
       "id": "u2",
@@ -44,8 +46,8 @@
       "role": "Patient",
       "doctorId": null,
       "patientId": "SC-PAT-10001",
-      "loginOtp": "523472",
-      "loginOtpExpires": "2026-08-17T11:58:44.306Z"
+      "loginOtp": "170637",
+      "loginOtpExpires": "2026-08-17T12:26:03.504Z"
     },
     {
       "id": "u6",
@@ -666,5 +668,43 @@
       "updatedAt": "2026-07-20T09:00:00.000Z"
     }
   ],
-  "labTests": []
+  "labTests": [],
+  "feedbacks": [
+    {
+      "patientId": "SC-PAT-10001",
+      "patientName": "Alice Johnson (Patient)",
+      "doctorId": "doc-3",
+      "doctorName": "Dr. Emily Davis",
+      "appointmentId": null,
+      "rating": 2,
+      "comment": "",
+      "createdAt": "2026-08-17T12:07:36.157Z",
+      "_id": "fb-1786968456157"
+    },
+    {
+      "patientId": "SC-PAT-10001",
+      "patientName": "Alice Johnson (Patient)",
+      "doctorId": "doc-2",
+      "doctorName": "Dr. John Smith",
+      "appointmentId": null,
+      "rating": 3,
+      "comment": "",
+      "createdAt": "2026-08-17T12:19:41.407Z",
+      "_id": "fb-1786969181407"
+    }
+  ],
+  "auditLogs": [
+    {
+      "userId": "u5",
+      "userName": "Alice Johnson (Patient)",
+      "userRole": "Patient",
+      "action": "CREATE",
+      "resource": "feedback",
+      "resourceId": null,
+      "details": "CREATE feedback - /api/feedback",
+      "ipAddress": "::1",
+      "createdAt": "2026-08-17T12:19:41.408Z",
+      "_id": "audit-1786969181408-yky6g"
+    }
+  ]
 }

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const AuditLog = require('../models/AuditLog');
-const { isDbConnected } = require('../config/db');
+const mongoose = require('mongoose');
 const logger = require('../config/logger');
 
 // @route   GET /api/audit-logs
@@ -14,7 +14,7 @@ router.get('/', protect, authorize('Admin'), async (req, res) => {
     let logs = [];
     let total = 0;
 
-    if (isDbConnected()) {
+    if (mongoose.connection.readyState === 1) {
       const filter = {};
       if (action) filter.action = action;
       if (resource) filter.resource = resource;

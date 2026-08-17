@@ -1,5 +1,5 @@
 const AuditLog = require('../models/AuditLog');
-const { isDbConnected } = require('../config/db');
+const mongoose = require('mongoose');
 const logger = require('../config/logger');
 
 const METHOD_ACTION_MAP = {
@@ -36,7 +36,7 @@ const auditLogger = (resource) => {
         };
 
         // Fire and forget - don't block the response
-        if (isDbConnected()) {
+        if (mongoose.connection.readyState === 1) {
           AuditLog.create(logEntry).catch(err => {
             logger.error('Audit log save failed (MongoDB)', { error: err.message });
           });

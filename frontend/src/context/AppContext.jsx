@@ -22,9 +22,9 @@ const defaultSettings = {
 
 // ─── Role-Based Access Matrix ─────────────────────────────────────────────────
 export const ROLE_ACCESS = {
-  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'medical-records', 'reports', 'search', 'settings', 'staff'],
-  Doctor:       ['dashboard', 'patients', 'appointments', 'prescriptions', 'inventory', 'lab', 'medical-records'],
-  Patient:      ['dashboard', 'appointments', 'prescriptions', 'medical-records'],
+  Admin:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'medical-records', 'reports', 'search', 'settings', 'staff', 'audit-logs', 'feedback'],
+  Doctor:       ['dashboard', 'patients', 'appointments', 'prescriptions', 'inventory', 'lab', 'medical-records', 'feedback'],
+  Patient:      ['dashboard', 'appointments', 'prescriptions', 'medical-records', 'feedback'],
   Receptionist: ['dashboard', 'patients', 'doctors', 'appointments', 'inventory'],
   Billing:      ['dashboard', 'patients', 'billing', 'prescriptions', 'inventory', 'reports'],
   Staff:        ['dashboard', 'patients', 'doctors', 'appointments', 'billing', 'prescriptions', 'inventory', 'lab', 'medical-records', 'reports', 'search'],

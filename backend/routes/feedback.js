@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const Feedback = require('../models/Feedback');
-const { isDbConnected } = require('../config/db');
+const mongoose = require('mongoose');
 const logger = require('../config/logger');
 
 // @route   GET /api/feedback
@@ -13,7 +13,7 @@ router.get('/', protect, async (req, res) => {
     const { doctorId } = req.query;
     let feedbacks = [];
 
-    if (isDbConnected()) {
+    if (mongoose.connection.readyState === 1) {
       const filter = doctorId ? { doctorId } : {};
       feedbacks = await Feedback.find(filter).sort({ createdAt: -1 });
     } else {
@@ -37,7 +37,7 @@ router.get('/doctor/:doctorId/stats', protect, async (req, res) => {
   try {
     let feedbacks = [];
 
-    if (isDbConnected()) {
+    if (mongoose.connection.readyState === 1) {
       feedbacks = await Feedback.find({ doctorId: req.params.doctorId });
     } else {
       global.memoryStore.feedbacks = global.memoryStore.feedbacks || [];
@@ -87,7 +87,7 @@ router.post('/', protect, authorize('Patient', 'Admin'), async (req, res) => {
 
     let newFeedback;
 
-    if (isDbConnected()) {
+    if (mongoose.connection.readyState === 1) {
       newFeedback = await Feedback.create(feedbackData);
     } else {
       global.memoryStore.feedbacks = global.memoryStore.feedbacks || [];

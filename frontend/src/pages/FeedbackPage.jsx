@@ -1,38 +1,50 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
-import { Star, MessageSquare, Clock, User, Stethoscope } from 'lucide-react';
+import { Star, MessageSquare, Clock, User, Stethoscope, Plus } from 'lucide-react';
+import FeedbackModal from '../components/FeedbackModal';
 
 const FeedbackPage = () => {
   const { token, user } = useContext(AppContext);
   const [feedbacks, setFeedbacks] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [doctorsList, setDoctorsList] = useState([]);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-  useEffect(() => {
-    const fetchFeedback = async () => {
-      try {
-        const query = user.role === 'Doctor' ? `?doctorId=${user.id || user.doctorId}` : '';
-        const res = await fetch(`${API_URL}/feedback${query}`, {
+  const fetchFeedback = async () => {
+    try {
+      const query = user.role === 'Doctor' ? `?doctorId=${user.id || user.doctorId}` : '';
+      const res = await fetch(`${API_URL}/feedback${query}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success) setFeedbacks(json.data);
+
+      if (user.role === 'Doctor') {
+        const statsRes = await fetch(`${API_URL}/feedback/doctor/${user.id || user.doctorId}/stats`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const json = await res.json();
-        if (json.success) setFeedbacks(json.data);
-
-        if (user.role === 'Doctor') {
-          const statsRes = await fetch(`${API_URL}/feedback/doctor/${user.id || user.doctorId}/stats`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const statsJson = await statsRes.json();
-          if (statsJson.success) setStats(statsJson.data);
-        }
-      } catch (err) {
-        console.error('Failed to load feedback', err);
-      } finally {
-        setLoading(false);
+        const statsJson = await statsRes.json();
+        if (statsJson.success) setStats(statsJson.data);
+      } else if (user.role === 'Patient') {
+        // Fetch doctors list so patient can select who to rate
+        const docRes = await fetch(`${API_URL}/doctors`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const docJson = await docRes.json();
+        if (docJson.success) setDoctorsList(docJson.data);
       }
-    };
+    } catch (err) {
+      console.error('Failed to load feedback', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchFeedback();
   }, [token, user.role, user.id, user.doctorId]);
 
@@ -50,13 +62,57 @@ const FeedbackPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <MessageSquare className="text-blue-600" size={28} /> 
-            {user.role === 'Doctor' ? 'My Patient Feedback' : 'All Patient Feedback'}
+            {user.role === 'Doctor' ? 'My Patient Feedback' : 'Patient Feedback'}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Review patient ratings and comments from past appointments.
           </p>
         </div>
+        
+        {user.role === 'Patient' && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium"
+          >
+            <Plus size={18} />
+            Give Feedback
+          </button>
+        )}
       </div>
+
+      {/* Select Doctor Dialog logic handles right inside the modal wrapper now */}
+      {isModalOpen && user.role === 'Patient' && (
+        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select a Doctor to Rate:</label>
+          <div className="flex gap-2">
+            <select 
+              className="flex-1 px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-gray-700"
+              onChange={(e) => {
+                const doc = doctorsList.find(d => d.id === e.target.value);
+                setSelectedDoctor(doc);
+              }}
+              defaultValue=""
+            >
+              <option value="" disabled>-- Choose Doctor --</option>
+              {doctorsList.map(d => (
+                <option key={d.id} value={d.id}>{d.name} ({d.specialty})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {selectedDoctor && isModalOpen && (
+        <FeedbackModal 
+          isOpen={isModalOpen} 
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedDoctor(null);
+            fetchFeedback(); // Refresh the list after giving feedback
+          }} 
+          doctor={selectedDoctor} 
+        />
+      )}
 
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
