@@ -11,102 +11,30 @@ A full-stack **Hospital Management System** built with the **MERN Stack** (Mongo
 
 ---
 
-## ✨ Features
+## ✨ All Modules
 
-### 🔐 Authentication & Security
-- JWT-based authentication
-- Role-based access control (Admin, Doctor, Receptionist, Billing, Staff, Patient)
-- Forgot password with 6-digit email verification code
-- Rate limiting & input validation
-- bcrypt password hashing
-- Helmet security headers
-- CNIC-based 3-step login
-
-### 👥 Patient Management
-- Register patients with CNIC auto-formatter (XXXXX-XXXXXXX-X)
-- Allergy severity color coding (Critical/Moderate/Mild)
-- Search & filter patients
-- Pagination support
-- Medical history tracking
-
-### 👨‍⚕️ Doctor Management
-- Add/remove doctors with specialties
-- Consultation fee management
-- Doctor-patient assignment view
-- Availability scheduling
-- Performance tracking
-
-### 📅 Appointment System
-- Book appointments with 15-minute slot conflict prevention
-- Real-time available slot picker
-- Reschedule & cancel appointments
-- No-Show tracking
-- Doctor calendar integration
-
-### 💊 Prescriptions
-- Create & manage prescriptions
-- Inventory-connected medicine dropdown
-- Stock status indicators (In Stock/Low Stock/Out of Stock)
-- Duplicate medicine prevention
-- Print prescription with hospital letterhead
-- WhatsApp share
-- Refill management
-
-### 🧪 Lab & Diagnostics
-- Lab test ordering & tracking
-- Categories: Blood, Urine, Radiology, Pathology
-- Result entry & status management
-- Lab-specific doctor assignments
-- Pending/Completed/Cancelled tracking
-
-### 💰 Billing & Invoices
-- Create itemized invoices
-- Mark invoices as paid
-- Revenue tracking
-- Payment history
-- Stripe/JazzCash/EasyPaisa integration
-- Auto invoice generation
-
-### 💊 Pharmacy & Inventory
-- Medicine management with batch tracking
-- Smart stock merging (same medicine + batch = auto merge)
-- Low stock alerts
-- Auto stock deduction on prescription
-- Category management
-- Expiry date tracking
-
-### 👔 Staff & HR Management
-- Staff profiles with roles, departments & shifts
-- Salary tracking
-- Auto login account creation
-- Morning/Evening/Night shift management
-- RBAC-protected (Admin only)
-
-### 📊 Reports & Analytics
-- Revenue analytics with charts
-- Patient statistics
-- Doctor performance metrics
-- Appointment reports
-- Pharmacy reports
-- CSV & PDF export
-
-### 🌐 Health Library (Public)
-- Patient guides
-- Doctor articles
-- Health tips
-- BMI Calculator
-- BMR Calculator
-- No login required
-
-### ⚙️ Settings & More
-- Hospital profile management
-- SMTP email configuration
-- SMS provider settings (Twilio)
-- Dark/Light theme toggle
-- English/Urdu language toggle
-- Advanced search with filters
-- Data backup & restore
-- Real-time notifications (Socket.io)
+| Module | Features |
+|--------|---------|
+| 🔐 Authentication | JWT, RBAC, CNIC Login, Forgot Password OTP |
+| 👥 Patients | CNIC formatter, Allergy badges, Medical history |
+| 👨‍⚕️ Doctors | Specialties, Availability, Performance tracking |
+| 📅 Appointments | 15-min slots, Conflict prevention, Reschedule |
+| 💊 Prescriptions | Inventory dropdown, Print letterhead, WhatsApp share |
+| 🧪 Lab & Diagnostics | Test ordering, Results, Lab doctors |
+| 💰 Billing | Invoices, Stripe/JazzCash/EasyPaisa payments |
+| 💊 Pharmacy | Batch tracking, Smart merging, Low stock alerts |
+| 👔 Staff & HR | Roles, Shifts, Salary, Auto login creation |
+| 📊 Reports | Revenue charts, PDF/CSV export, Analytics |
+| 🌐 Health Library | BMI/BMR Calculator, Articles, Public access |
+| 🏥 Medical Records | Patient timeline, Vitals, Print history |
+| 🔔 Notifications | Real-time Socket.io alerts, Bell icon |
+| 📋 Audit Logs | User action tracking, Admin view |
+| ⭐ Feedback | 5-star rating, Doctor performance |
+| 👤 Patient Portal | Own dashboard, appointments, records |
+| 👨‍⚕️ Doctor Portal | Patient list, Write prescriptions |
+| 📖 Swagger Docs | /api/docs - All endpoints documented |
+| ✅ Jest Tests | Unit & integration testing |
+| ⚙️ Settings | SMTP, SMS, Backup, Dark/Light theme |
 
 ---
 
@@ -122,152 +50,41 @@ A full-stack **Hospital Management System** built with the **MERN Stack** (Mongo
 | SMS | Twilio |
 | Payments | Stripe + JazzCash + EasyPaisa |
 | Real-time | Socket.io |
-| State Management | Zustand |
-| UI Icons | Lucide React |
+| State | Zustand |
 | Charts | Recharts |
-| Notifications | React Hot Toast |
-| Containerization | Docker + Docker Compose |
+| Container | Docker + Docker Compose |
 | CI/CD | GitHub Actions |
 | Security | Helmet + Rate Limiting + CORS |
+| Testing | Jest + Supertest |
+| API Docs | Swagger UI |
 
 ---
 
-## 📁 Project Structure
+## 🚀 Quick Start
 
-```
-Subhan-Care-Hospital/
-├── backend/
-│   ├── config/
-│   ├── middleware/
-│   ├── models/
-│   │   ├── User.js
-│   │   ├── Patient.js
-│   │   ├── Doctor.js
-│   │   ├── Appointment.js
-│   │   ├── Invoice.js
-│   │   ├── Medicine.js
-│   │   ├── Prescription.js
-│   │   ├── Staff.js
-│   │   └── LabTest.js
-│   ├── routes/
-│   │   ├── auth.js
-│   │   ├── patients.js
-│   │   ├── doctors.js
-│   │   ├── appointments.js
-│   │   ├── invoices.js
-│   │   ├── inventory.js
-│   │   ├── prescriptions.js
-│   │   ├── staff.js
-│   │   ├── lab.js
-│   │   ├── reports.js
-│   │   └── settings.js
-│   ├── Dockerfile
-│   ├── server.js
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── context/
-│   │   ├── stores/
-│   │   └── pages/
-│   │       ├── Dashboard.jsx
-│   │       ├── Patients.jsx
-│   │       ├── Doctors.jsx
-│   │       ├── Appointments.jsx
-│   │       ├── Prescriptions.jsx
-│   │       ├── Billing.jsx
-│   │       ├── Inventory.jsx
-│   │       ├── Lab.jsx
-│   │       ├── Staff.jsx
-│   │       ├── Reports.jsx
-│   │       ├── SettingsPage.jsx
-│   │       └── HealthLibrary.jsx
-│   ├── Dockerfile
-│   └── package.json
-├── docker-compose.yml
-├── .github/workflows/ci.yml
-└── README.md
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js (v20+)
-- MongoDB (Atlas or Local)
-- npm or yarn
-- Docker (optional)
-
-### Installation
-
-#### 1. Clone the Repository
-```bash
-git clone https://github.com/hoorainnasir83/Subhan-Care-Hospital.git
-cd Subhan-Care-Hospital
-```
-
-#### 2. Backend Setup
+### Backend
 ```bash
 cd backend
 npm install
-```
-
-#### 3. Configure Environment Variables
-Create `backend/.env`:
-```env
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/subhancare
-JWT_SECRET=your_super_secret_key_here
-PORT=5000
-NODE_ENV=development
-EMAIL_USER=your-gmail@gmail.com
-EMAIL_PASS=your-gmail-app-password
-STRIPE_SECRET_KEY=your_stripe_secret_key
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
-TWILIO_PHONE_NUMBER=your_twilio_phone
-```
-
-#### 4. Seed Database
-```bash
-npm run seed
-```
-
-#### 5. Start Backend
-```bash
+cp .env.example .env
 npm start
 ```
-Backend: `http://localhost:5000`
 
-#### 6. Frontend Setup
+### Frontend
 ```bash
-cd ../frontend
+cd frontend
 npm install --legacy-peer-deps
-```
-
-#### 7. Configure Frontend Environment
-Create `frontend/.env`:
-```env
-VITE_API_URL=http://localhost:5000/api
-```
-
-#### 8. Start Frontend
-```bash
 npm run dev
 ```
-Frontend: `http://localhost:5173`
 
----
-
-## 🐳 Docker Setup
-
+### Docker
 ```bash
 docker-compose up --build
 ```
 
 ---
 
-## 🔑 Default Login Credentials
+## 🔑 Login Credentials
 
 | Role | Email | Password |
 |------|-------|----------|
@@ -277,52 +94,45 @@ docker-compose up --build
 
 ---
 
-## 🌐 API Endpoints
+## ⚙️ Environment Variables
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/login | Login |
-| POST | /api/auth/forgot-password | Send OTP |
-| GET | /api/patients | Get patients |
-| POST | /api/patients | Add patient |
-| GET | /api/doctors | Get doctors |
-| GET | /api/appointments | Get appointments |
-| POST | /api/appointments | Book appointment |
-| GET | /api/inventory | Get medicines |
-| POST | /api/prescriptions | Create prescription |
-| GET | /api/lab | Get lab tests |
-| GET | /api/staff | Get staff |
-| GET | /api/reports/dashboard | Dashboard stats |
-| POST | /api/payments/create-session | Stripe payment |
+Create `backend/.env`:
+```env
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/subhancare
+JWT_SECRET=your_secret_key
+PORT=5000
+EMAIL_USER=your-gmail@gmail.com
+EMAIL_PASS=your-app-password
+STRIPE_SECRET_KEY=your_stripe_key
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
+TWILIO_PHONE_NUMBER=your_phone
+```
 
----
-
-## 🔒 Security Features
-
-- ✅ JWT Authentication
-- ✅ bcrypt Password Hashing
-- ✅ Rate Limiting
-- ✅ Input Validation
-- ✅ Helmet Security Headers
-- ✅ CORS Protection
-- ✅ RBAC
-- ✅ XSS Protection
+Create `frontend/.env`:
+```env
+VITE_API_URL=http://localhost:5000/api
+```
 
 ---
 
 ## 🌐 Deployment
 
-### Backend (Render/Railway)
-```bash
-npm install
-npm start
-```
+### Backend → Render/Railway
+### Frontend → Vercel/Netlify
 
-### Frontend (Vercel/Netlify)
-```bash
-npm run build
-# Output: dist/
-```
+---
+
+## 🔒 Security
+
+- ✅ JWT Authentication
+- ✅ bcrypt Password Hashing
+- ✅ Rate Limiting
+- ✅ Helmet Headers
+- ✅ CORS Protection
+- ✅ RBAC
+- ✅ XSS Protection
+- ✅ Input Validation
 
 ---
 
@@ -335,7 +145,7 @@ npm run build
 
 ## 📝 License
 
-MIT License - see [LICENSE](LICENSE) file.
+MIT License
 
 ---
 
